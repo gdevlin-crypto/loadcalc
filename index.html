@@ -1,0 +1,2231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b3a66" />
+<title>Kato Electrical — CEC Field Load Calc</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-180.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Kato Load Calc" />
+<style>
+  :root {
+    --bg:#f4f6f9; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
+    --brand:#0b3a66; --brand-2:#1d6fb8; --pill:#eef4fb;
+    --suite:#0e7490; --lane:#7c3aed;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--ink); font:16px/1.45 -apple-system, BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  header { background:var(--brand); color:#fff; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:5; }
+  header h1 { margin:0; font-size:17px; }
+  header small { display:block; opacity:.85; font-weight:400; font-size:12px; }
+  main { max-width:820px; margin:0 auto; padding:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+  .card h2 { margin:0 0 4px; font-size:15px; color:var(--brand); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .card h2 .rule { background:var(--pill); color:var(--brand-2); font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; }
+  .card.unit-a { border-left:4px solid var(--brand); }
+  .card.unit-b { border-left:4px solid var(--suite); }
+  .card.unit-b h2 { color:var(--suite); }
+  .card.unit-b h2 .rule { color:var(--suite); background:#cffafe; }
+  .card.unit-c { border-left:4px solid var(--lane); }
+  .card.unit-c h2 { color:var(--lane); }
+  .card.unit-c h2 .rule { color:var(--lane); background:#ede9fe; }
+  .card p.help { margin:4px 0 12px; color:var(--muted); font-size:13px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:8px 0 4px; }
+  input[type="number"],input[type="text"],select,textarea {
+    width:100%; padding:11px 12px; font-size:16px; border:1px solid var(--line);
+    border-radius:10px; background:#fff; color:var(--ink); -webkit-appearance:none; appearance:none; font-family:inherit;
+  }
+  textarea { min-height:60px; resize:vertical; }
+  input:focus,select:focus,textarea:focus { outline:2px solid var(--brand-2); outline-offset:1px; border-color:var(--brand-2); }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .row-4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; }
+  @media (max-width:540px) { .row-3,.row-4 { grid-template-columns:1fr 1fr; } }
+  .results { background:linear-gradient(180deg,#0b3a66 0%,#144f87 100%); color:#fff; }
+  .results h2 { color:#fff; }
+  .results .big { font-size:34px; font-weight:700; letter-spacing:-.5px; margin:4px 0; }
+  .results .sub { color:#bcd4ec; font-size:13px; }
+  .breakdown { margin-top:10px; background:rgba(255,255,255,.08); border-radius:10px; padding:8px 10px; }
+  .breakdown div { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed rgba(255,255,255,.18); font-size:13px; }
+  .breakdown div:last-child { border:0; }
+  .breakdown .line-label { color:#d6e6f5; }
+  .pill { display:inline-block; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.15); color:#fff; font-size:12px; margin-right:6px; }
+  .actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  button { flex:1; min-width:130px; border:0; border-radius:10px; padding:12px 14px; font-size:15px; font-weight:600; cursor:pointer; }
+  .btn-primary { background:#fff; color:var(--brand); }
+  .btn-ghost { background:transparent; color:#fff; border:1px solid rgba(255,255,255,.5); }
+  .btn-secondary { background:var(--brand-2); color:#fff; }
+  .note { font-size:12px; color:var(--muted); margin-top:8px; }
+  footer { text-align:center; color:var(--muted); font-size:12px; padding:16px 12px 28px; }
+  details { margin-top:6px; }
+  details summary { cursor:pointer; color:var(--brand-2); font-size:13px; padding:6px 0; }
+  .bb-callout { background:#fff7ed; border:1px solid #fdba74; color:#7c2d12; padding:10px 12px; border-radius:10px; font-size:13px; margin:10px 0 8px; }
+  .bb-callout strong { color:#9a3412; display:block; margin-bottom:2px; }
+  .bb-controls { display:flex; align-items:center; gap:8px; margin:8px 0; }
+  .bb-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:10px 0; }
+  @media (max-width:480px) { .bb-grid { grid-template-columns:repeat(2,1fr); } }
+  .bb-cell { border:1px solid var(--line); border-radius:10px; padding:8px; background:#f8fafc; text-align:center; }
+  .bb-cell .size { font-weight:700; color:var(--brand); font-size:14px; }
+  .bb-cell .ft { color:var(--muted); font-size:11px; }
+  .bb-cell .qty-row { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:6px; }
+  .bb-cell button { flex:0 0 auto; min-width:32px; padding:6px 0; font-size:18px; line-height:1; background:#fff; border:1px solid var(--line); color:var(--brand-2); border-radius:8px; }
+  .bb-cell button:active { background:var(--pill); }
+  .bb-cell input.qty { width:46px; padding:6px 4px; text-align:center; font-size:16px; font-weight:600; border:1px solid var(--line); border-radius:8px; }
+  .bb-length { margin-top:10px; padding:10px; background:#f8fafc; border-radius:10px; border:1px solid var(--line); }
+  .bb-length .sub-lbl { font-size:12px; color:var(--muted); margin:0 0 4px; display:block; }
+  .bb-summary { margin-top:10px; padding:10px 12px; background:var(--pill); border-radius:10px; }
+  .bb-summary > div:first-child { display:flex; justify-content:space-between; align-items:center; }
+  .bb-summary strong { font-size:18px; color:var(--brand); }
+  .bb-detail { color:var(--muted); font-size:12px; margin-top:4px; }
+  .fla-box { background:#f8fafc; border:1px solid var(--line); border-radius:10px; padding:10px; margin-top:8px; }
+  .fla-box .sub-lbl { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
+  .vii-mode { background:var(--pill); padding:10px 12px; border-radius:10px; margin:10px 0; border-left:4px solid var(--brand-2); }
+  .vii-mode strong { color:var(--brand); display:block; font-size:13px; }
+  .vii-mode .sub { color:var(--muted); font-size:12px; margin-top:2px; }
+  .summary-line { padding:8px 12px; margin-top:10px; background:var(--pill); border-radius:10px; display:flex; justify-content:space-between; align-items:center; font-size:14px; }
+  .summary-line strong { color:var(--brand); font-size:16px; }
+  .config-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:6px; }
+  @media (max-width:540px) { .config-grid { grid-template-columns:1fr; } }
+  .config-tile { border:2px solid var(--line); border-radius:10px; padding:10px; cursor:pointer; text-align:center; background:#fff; transition:.15s; }
+  .config-tile:hover { border-color:var(--brand-2); }
+  .config-tile.active { border-color:var(--brand); background:var(--pill); }
+  .config-tile h3 { margin:0 0 4px; font-size:14px; color:var(--brand); }
+  .config-tile .sub { font-size:11px; color:var(--muted); }
+  .per-unit-results { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px; }
+  @media (max-width:540px) { .per-unit-results { grid-template-columns:1fr; } }
+  .per-unit-tile { background:rgba(255,255,255,.08); padding:10px; border-radius:10px; }
+  .per-unit-tile .label { font-size:11px; color:#bcd4ec; letter-spacing:.5px; text-transform:uppercase; }
+  .per-unit-tile .amps { font-size:22px; font-weight:700; color:#fff; }
+  .per-unit-tile .breaker { font-size:12px; color:#cfe0f0; }
+  .per-unit-tile.hidden { display:none; }
+  @media print {
+    @page { margin:0.4in; }
+    header,.actions,footer,.no-print,button,details summary { display:none !important; }
+    details > * { display:block !important; }
+    body { background:#fff; font-size:11px; }
+    main { padding:0; max-width:none; }
+    .card { box-shadow:none; border:1px solid #000; page-break-inside:avoid; margin-bottom:8px; padding:8px; border-radius:4px; }
+    .results { background:#fff !important; color:#000 !important; border:2px solid #000; }
+    .results h2,.results .sub,.breakdown .line-label,.per-unit-tile .label,.per-unit-tile .amps,.per-unit-tile .breaker { color:#000 !important; }
+    .breakdown { background:#f4f4f4; }
+    .pill { background:#eee; color:#000; border:1px solid #999; }
+    .bb-callout,.vii-mode { background:#fff; border-color:#000; color:#000; }
+    .card h2 { font-size:13px; }
+    .summary-line { background:#f4f4f4; border:1px solid #999; }
+    .per-unit-tile { background:#f4f4f4; border:1px solid #999; }
+    input,select,textarea { border:none !important; border-bottom:1px solid #999 !important; padding:2px 0 !important; border-radius:0 !important; font-size:11px !important; }
+    .config-tile { border-width:1px; border-color:#999; }
+    .config-tile.active { background:#f4f4f4; border-color:#000; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Kato Electrical — Field Load Calc</h1>
+    <small>CEC 8-200 / 8-202 · BC AHJ-ready · Vancouver default</small>
+  </div>
+  <div style="display:flex; gap:6px;">
+    <button class="btn-ghost no-print" style="flex:0 0 auto; min-width:auto; padding:8px 12px; font-size:13px;" onclick="resetForm()">New calc</button>
+    <button class="btn-ghost no-print" style="flex:0 0 auto; min-width:auto; padding:8px 12px; font-size:13px;" onclick="window.print()">Print</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- Permit & Contractor -->
+  <section class="card">
+    <h2>Permit &amp; contractor</h2>
+    <p class="help">Required by every BC AHJ form (Vancouver, CNV, DNV, West Van, Burnaby).</p>
+    <div class="row">
+      <div><label for="addr">Project address</label><input id="addr" type="text" placeholder="1234 Main St" /></div>
+      <div><label for="jurisdiction">Jurisdiction</label>
+        <select id="jurisdiction">
+          <option value="">— select —</option>
+          <option>City of Vancouver</option>
+          <option>City of Surrey</option>
+          <option>City of North Vancouver</option>
+          <option>District of North Vancouver</option>
+          <option>West Vancouver</option>
+          <option>Burnaby</option>
+          <option>Maple Ridge</option>
+          <option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div><label for="permit-elec">Electrical permit #</label><input id="permit-elec" type="text" /></div>
+      <div><label for="permit-bldg">Building permit #</label><input id="permit-bldg" type="text" /></div>
+    </div>
+    <div class="row">
+      <div><label for="contractor">Contractor</label><input id="contractor" type="text" value="Kato Electrical Ltd." /></div>
+      <div><label for="contractor-lic">Contractor license #</label><input id="contractor-lic" type="text" value="LEL0203994" /></div>
+    </div>
+    <div class="row">
+      <div><label for="fsr-name">FSR name</label><input id="fsr-name" type="text" value="Arthur Kavanagh" /></div>
+      <div><label for="fsr-reg">FSR reg #</label><input id="fsr-reg" type="text" value="009315" /></div>
+    </div>
+    <div class="row">
+      <div><label for="contractor-email">Email</label><input id="contractor-email" type="text" value="info@katoelectrical.com" /></div>
+      <div><label for="contractor-phone">Phone</label><input id="contractor-phone" type="text" value="604-417-4785" /></div>
+    </div>
+    <div class="row">
+      <div><label for="tech">Tech (initials)</label><input id="tech" type="text" /></div>
+      <div><label for="date">Date</label><input id="date" type="text" /></div>
+    </div>
+  </section>
+
+  <!-- Service details -->
+  <section class="card">
+    <h2>Service characteristics</h2>
+    <p class="help">Service ampacity, voltage, conductors, BC Hydro meters. Vancouver form has separate fields for existing / new.</p>
+    <div class="row">
+      <div><label for="svc-orient">Orientation</label>
+        <select id="svc-orient"><option value="">—</option><option>Overhead</option><option>Underground</option></select>
+      </div>
+      <div><label for="svc-upgrading">Upgrading service?</label>
+        <select id="svc-upgrading"><option value="no">No</option><option value="yes">Yes</option></select>
+      </div>
+    </div>
+    <p class="note" style="margin-top:10px;"><strong>Existing service</strong></p>
+    <div class="row-3">
+      <div><label for="svc-ex-v">Volts</label><input id="svc-ex-v" type="number" /></div>
+      <div><label for="svc-ex-a">Amps</label><input id="svc-ex-a" type="number" /></div>
+      <div><label for="svc-ex-ph">Phase</label>
+        <select id="svc-ex-ph"><option value="">—</option><option>1Ø 3W</option><option>3Ø 4W</option></select>
+      </div>
+    </div>
+    <p class="note" style="margin-top:10px;"><strong>New service (if upgrading)</strong></p>
+    <div class="row-4">
+      <div><label for="svc-new-v">Volts</label><input id="svc-new-v" type="number" placeholder="240" /></div>
+      <div><label for="svc-new-a">Amps</label><input id="svc-new-a" type="number" /></div>
+      <div><label for="svc-new-ph">Phase</label>
+        <select id="svc-new-ph"><option value="">—</option><option>1Ø 3W</option><option>3Ø 4W</option></select>
+      </div>
+      <div><label for="svc-meters">BC Hydro meters</label><input id="svc-meters" type="number" min="1" placeholder="1" /></div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="svc-cond">Service conductor (AWG/kcmil Cu or Al)</label>
+        <input id="svc-cond" type="text" placeholder="e.g. 2/0 Cu" />
+      </div>
+      <div>
+        <label for="voltage">Voltage for calc</label>
+        <select id="voltage">
+          <option value="240">120/240 V single phase</option>
+          <option value="208">120/208 V (multi-unit)</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- Building Configuration -->
+  <section class="card">
+    <h2>Building configuration</h2>
+    <p class="help">Vancouver form supports up to 3 dwelling units: Principal + Secondary Suite + Laneway House. Select what's installed.</p>
+    <div class="config-grid">
+      <div class="config-tile active" data-units="1" onclick="setUnits(1)">
+        <h3>Principal only</h3><div class="sub">Single one-family dwelling</div>
+      </div>
+      <div class="config-tile" data-units="2" onclick="setUnits(2)">
+        <h3>Principal + Suite</h3><div class="sub">Adds Unit B (secondary suite)</div>
+      </div>
+      <div class="config-tile" data-units="3" onclick="setUnits(3)">
+        <h3>All three units</h3><div class="sub">Principal + Suite + Laneway</div>
+      </div>
+    </div>
+    <div class="row-3" style="margin-top:14px;">
+      <div><label for="metering">Metering &amp; service</label>
+        <select id="metering">
+          <option value="combined">Combined service (8-202(3) cascade)</option>
+          <option value="separate">Each unit separately metered (8-200(2))</option>
+        </select>
+      </div>
+      <div>
+        <label for="ev-mode">EVSE / EVEMS</label>
+        <select id="ev-mode">
+          <option value="none">No EVSE in this calc</option>
+          <option value="full">Full EVSE rating (100%)</option>
+          <option value="evems">EVEMS controlled — use EVEMS limit</option>
+        </select>
+      </div>
+      <div>
+        <label for="hvac-interlock">Heat &amp; A/C interlock</label>
+        <select id="hvac-interlock">
+          <option value="no">NOT interlocked — heat + cool BOTH added</option>
+          <option value="yes">Interlocked — larger only (8-106(3))</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== UNIT A — Principal Dwelling ===== -->
+  <section class="card unit-a">
+    <h2>Unit A — Principal one-family dwelling <span class="rule">8-200(1)</span></h2>
+    <p class="help">Basic load: 5000 W for first 90 m² + 1000 W per add'l 90 m². All loads below entered as nameplate (connected).</p>
+
+    <div class="row">
+      <div><label for="a-area-m2">Living area (m²)</label><input id="a-area-m2" type="number" inputmode="decimal" min="0" step="1" oninput="syncArea('a','m')" /></div>
+      <div><label for="a-area-ft2">…or (ft²)</label><input id="a-area-ft2" type="number" inputmode="decimal" min="0" step="1" oninput="syncArea('a','f')" /></div>
+    </div>
+
+    <p class="note" style="margin-top:14px;"><strong>Heat &amp; cooling (Rule 62-118 / Rule 8-106(3))</strong></p>
+    <p class="help">Baseboards get the 100%/75% demand split. Other heat (furnace, boiler, duct, cable, panel, patio, HP aux), AC, and HP each at 100%. The larger of <em>heating total</em> vs <em>AC + HP</em> is carried (Rule 8-106(3)).</p>
+
+    <div class="bb-callout">
+      <strong>Baseboards — use nameplate, not breaker × 80%.</strong>
+      Tally heaters by standard size using the builder below, then push the total into the Baseboard field.
+    </div>
+
+    <details open>
+      <summary>Baseboard builder — tap counts as you walk the house</summary>
+      <div class="bb-controls no-print">
+        <label for="bb-wpft" style="margin:0;">Spec:</label>
+        <select id="bb-wpft" style="width:auto; padding:6px 8px; font-size:14px;" onchange="bbCalc('')">
+          <option value="250">250 W/ft (standard residential)</option>
+          <option value="375">375 W/ft (Dimplex Linear Convector)</option>
+        </select>
+      </div>
+      <div class="bb-grid" id="bb-grid"></div>
+      <div class="bb-length">
+        <label>Extra by linear feet</label>
+        <div class="row-3">
+          <div><label class="sub-lbl">Length (ft)</label><input id="bb-ft" type="number" inputmode="decimal" min="0" step="0.5" oninput="bbCalc('')" /></div>
+          <div><label class="sub-lbl">= Watts</label><input id="bb-ft-w" type="number" readonly /></div>
+          <div><label class="sub-lbl">Custom W</label><input id="bb-custom-w" type="number" inputmode="numeric" min="0" step="50" oninput="bbCalc('')" /></div>
+        </div>
+      </div>
+      <div class="bb-summary">
+        <div><span>Baseboard builder total</span><strong id="bb-total">0 W</strong></div>
+        <div class="bb-detail" id="bb-detail">No heaters added yet.</div>
+        <div class="actions" style="margin-top:8px;">
+          <button type="button" class="btn-secondary no-print" onclick="applyBaseboard('')">Use this total ↑</button>
+          <button type="button" class="btn-ghost no-print" style="color:var(--brand-2); border-color:var(--brand-2);" onclick="resetBaseboard('')">Reset</button>
+        </div>
+      </div>
+    </details>
+
+    <div class="row">
+      <div><label for="a-bb-w">Baseboard total (W)</label><input id="a-bb-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+      <div><label for="a-other-heat-w">Other heat — boiler/furnace/duct/cable/patio/HP aux (W)</label><input id="a-other-heat-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+    </div>
+
+    <div class="fla-box">
+      <div class="note" style="margin-bottom:6px;"><strong>A/C and Heat Pump</strong> — nameplate FLA × Volts = Watts (Burnaby/Vancouver forms ask for nameplate).</div>
+      <div class="row-3">
+        <div><label class="sub-lbl">A/C FLA</label><input id="a-ac-fla" type="number" inputmode="decimal" min="0" step="0.1" /></div>
+        <div><label class="sub-lbl">A/C V</label><input id="a-ac-v" type="number" inputmode="numeric" min="0" value="240" /></div>
+        <div><label class="sub-lbl">= A/C Watts</label><input id="a-ac-w" type="number" inputmode="numeric" min="0" step="50" /></div>
+      </div>
+      <div class="row-3" style="margin-top:8px;">
+        <div><label class="sub-lbl">HP FLA</label><input id="a-hp-fla" type="number" inputmode="decimal" min="0" step="0.1" /></div>
+        <div><label class="sub-lbl">HP V</label><input id="a-hp-v" type="number" inputmode="numeric" min="0" value="240" /></div>
+        <div><label class="sub-lbl">= HP Watts</label><input id="a-hp-w" type="number" inputmode="numeric" min="0" step="50" /></div>
+      </div>
+    </div>
+
+    <div class="summary-line"><span>Heating total (BB demand + other heat)</span><strong id="a-heat-out">0 W</strong></div>
+    <div class="summary-line"><span>Cooling total (AC + HP)</span><strong id="a-cool-out">0 W</strong></div>
+    <div class="summary-line"><span id="a-hvac-label">Carried — larger of heat or cool (8-106(3))</span><strong id="a-hvac-out">0 W</strong></div>
+
+    <p class="note" style="margin-top:14px;"><strong>Range / cooking <span class="rule">(iv)</span></strong></p>
+    <p class="help">Single range gets 6000 W demand automatically (CEC 8-200(1)(a)(iv) — ranges up to 12 kW). Only enter nameplate W if the range is over 12 kW.</p>
+    <div class="row">
+      <div><label for="a-range-mode">Cooking equipment</label>
+        <select id="a-range-mode">
+          <option value="single">Single electric range (6000 W applied)</option>
+          <option value="separate">Separate cooktop + wall oven</option>
+          <option value="none">No electric range (gas or none)</option>
+        </select>
+      </div>
+      <div id="a-range-single-wrap">
+        <label for="a-range-w">Nameplate W (only if &gt; 12 kW)</label>
+        <input id="a-range-w" type="number" inputmode="numeric" min="0" step="100" placeholder="leave blank if ≤ 12 kW" />
+      </div>
+    </div>
+    <div class="row" id="a-range-separate-wrap" style="display:none;">
+      <div><label for="a-cooktop-w">Cooktop (W)</label><input id="a-cooktop-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+      <div><label for="a-oven-w">Wall oven (W)</label><input id="a-oven-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+    </div>
+    <div class="summary-line"><span>Range demand applied</span><strong id="a-range-out">0 W</strong></div>
+
+    <p class="note" style="margin-top:14px;"><strong>Tankless / spa / EV <span class="rule">(v)+(vi)</span></strong></p>
+    <div class="row-3">
+      <div><label for="a-tankless-w">Tankless WH (W)</label><input id="a-tankless-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+      <div><label for="a-spa-w">Pool/spa/hot tub (W)</label><input id="a-spa-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+      <div><label for="a-ev-w">EVSE / EVEMS (W)</label><input id="a-ev-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+    </div>
+
+    <p class="note" style="margin-top:14px;"><strong>Other loads ≥1500 W <span class="rule">(vii)</span></strong></p>
+    <div class="vii-mode">
+      <strong id="a-vii-label">(A) Range installed → 25% per load</strong>
+      <div class="sub" id="a-vii-sub">Change Cooking equipment to "No electric range" to switch to (B).</div>
+    </div>
+    <div class="row-3">
+      <div><label>Dryer (W)</label><input class="ol" type="number" inputmode="numeric" min="0" step="50" id="a-ol-dryer" /></div>
+      <div><label>Tank WH (W)</label><input class="ol" type="number" inputmode="numeric" min="0" step="50" id="a-ol-hwt" /></div>
+      <div><label>Dishwasher (W)</label><input class="ol" type="number" inputmode="numeric" min="0" step="50" id="a-ol-dish" /></div>
+    </div>
+    <div class="row-3">
+      <div><label>Hot tub (W)</label><input class="ol" type="number" inputmode="numeric" min="0" step="50" id="a-ol-hottub" /></div>
+      <div><label>Pool (W)</label><input class="ol" type="number" inputmode="numeric" min="0" step="50" id="a-ol-pool" /></div>
+      <div><label>Sauna (W)</label><input class="ol" type="number" inputmode="numeric" min="0" step="50" id="a-ol-sauna" /></div>
+    </div>
+    <details>
+      <summary>Add custom loads (microwave, garage heater, well pump, compressor, etc.)</summary>
+      <div class="row"><div><label>Custom 1 — name</label><input id="a-ol-c1-name" type="text" /></div><div><label>Custom 1 (W)</label><input class="ol" type="number" inputmode="numeric" min="0" step="50" id="a-ol-c1-w" /></div></div>
+      <div class="row"><div><label>Custom 2 — name</label><input id="a-ol-c2-name" type="text" /></div><div><label>Custom 2 (W)</label><input class="ol" type="number" inputmode="numeric" min="0" step="50" id="a-ol-c2-w" /></div></div>
+      <div class="row"><div><label>Custom 3 — name</label><input id="a-ol-c3-name" type="text" /></div><div><label>Custom 3 (W)</label><input class="ol" type="number" inputmode="numeric" min="0" step="50" id="a-ol-c3-w" /></div></div>
+    </details>
+    <div class="summary-line"><span>Connected ≥1500 W</span><strong id="a-other-connected">0 W</strong></div>
+    <div class="summary-line"><span>(vii) demand applied</span><strong id="a-other-demand">0 W</strong></div>
+
+    <div class="summary-line" style="background:var(--brand); color:#fff;"><span>Unit A calculated demand</span><strong id="a-unit-total" style="color:#fff;">0 W</strong></div>
+  </section>
+
+  <!-- ===== UNIT B + UNIT C generated by JS ===== -->
+  <div id="unit-hosts"></div>
+
+  <!-- ===== Results ===== -->
+  <section class="card results" id="results">
+    <h2 style="justify-content:space-between; display:flex; color:#fff;"><span>Service result</span><span class="pill" id="result-mode">Single dwelling</span></h2>
+
+    <div class="per-unit-results">
+      <div class="per-unit-tile" id="tile-a">
+        <div class="label">Unit A — Principal</div>
+        <div class="amps" id="tile-a-amps">— A</div>
+        <div class="breaker" id="tile-a-breaker">—</div>
+      </div>
+      <div class="per-unit-tile hidden" id="tile-b">
+        <div class="label">Unit B — Suite</div>
+        <div class="amps" id="tile-b-amps">— A</div>
+        <div class="breaker" id="tile-b-breaker">—</div>
+      </div>
+      <div class="per-unit-tile hidden" id="tile-c">
+        <div class="label">Unit C — Laneway</div>
+        <div class="amps" id="tile-c-amps">— A</div>
+        <div class="breaker" id="tile-c-breaker">—</div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,.2);">
+      <div class="sub">Consumer's service (carries to BC Hydro)</div>
+      <div class="big" id="amps">— A</div>
+      <div class="sub" id="watts">— W</div>
+    </div>
+
+    <div class="breakdown" id="breakdown-single">
+      <div><span class="line-label">Basic load (i)+(ii)</span><span data-k="s-basic">0 W</span></div>
+      <div><span class="line-label">Baseboard connected · demand</span><span><span data-k="s-bb-conn">0 W</span> · <span data-k="s-bb-dem">0 W</span></span></div>
+      <div><span class="line-label">Other heat (100%)</span><span data-k="s-other-heat">0 W</span></div>
+      <div><span class="line-label">A/C · HP</span><span data-k="s-cool">0 W</span></div>
+      <div><span class="line-label" id="s-carry-label">Carried — larger of heat or cool (8-106(3))</span><span data-k="s-carried">0 W</span></div>
+      <div><span class="line-label">Range / cooking (iv)</span><span data-k="s-range">0 W</span></div>
+      <div><span class="line-label">Tankless &amp; spa (v)</span><span data-k="s-tankless">0 W</span></div>
+      <div><span class="line-label">EV (vi)</span><span data-k="s-ev">0 W</span></div>
+      <div><span class="line-label">Other ≥1500 W (vii)</span><span data-k="s-other">0 W</span></div>
+      <div style="font-weight:700;"><span class="line-label">Calculated demand</span><span data-k="s-total">0 W</span></div>
+    </div>
+    <div class="breakdown" id="breakdown-cascade" style="display:none;">
+      <div><span class="line-label">Heaviest unit @ 100% (excl heat/AC/EV)</span><span data-k="cascade-h">0 W</span></div>
+      <div><span class="line-label">Next unit @ 65%</span><span data-k="cascade-n1">0 W</span></div>
+      <div><span class="line-label">Next unit @ 65%</span><span data-k="cascade-n2">0 W</span></div>
+      <div><span class="line-label">Combined baseboards (100/75 split)</span><span data-k="cascade-bb">0 W</span></div>
+      <div><span class="line-label">Combined other space heating</span><span data-k="cascade-other">0 W</span></div>
+      <div><span class="line-label">Combined A/C + HP</span><span data-k="cascade-cool">0 W</span></div>
+      <div><span class="line-label" id="cascade-carry-label">Larger of heat / cool carried (8-106(3))</span><span data-k="cascade-carried">0 W</span></div>
+      <div><span class="line-label">Combined EVSE @ 100%</span><span data-k="cascade-ev">0 W</span></div>
+      <div style="font-weight:700;"><span class="line-label">Consumer's service total</span><span data-k="total">0 W</span></div>
+    </div>
+
+    <div class="sub" id="service-rec" style="margin-top:10px;">Recommended service: —</div>
+
+    <div class="actions no-print">
+      <button class="btn-primary" onclick="window.print()">Print / Save PDF</button>
+      <button class="btn-ghost" onclick="resetForm()">Reset</button>
+    </div>
+    <div class="note" style="color:#cfe0f0;">
+      Verify against your current CEC and AHJ requirements before sizing equipment. Vancouver form uses 2024 CE Code numbering.
+    </div>
+  </section>
+
+  <!-- Export to AHJ form -->
+  <section class="card no-print" id="export-card">
+    <h2>Export to AHJ form</h2>
+    <p class="help">Fill the official jurisdictional PDF directly so the office doesn't have to transcribe. Pick the blank Vancouver form you already have; the tool fills every cell and downloads a copy.</p>
+    <input type="file" id="vancouver-pdf-input" accept="application/pdf" style="display:none;" />
+    <p class="note" style="margin:0 0 6px;">Click an AHJ button and pick that jurisdiction's blank PDF. The tool fills every cell from the captured calc and downloads a copy.</p>
+    <div class="actions" style="gap:6px;">
+      <button type="button" class="btn-secondary" onclick="pickAndFillAHJ('vancouver')">Vancouver ✓</button>
+      <button type="button" class="btn-secondary" onclick="pickAndFillAHJ('westvan')">West Vancouver ✓</button>
+      <button type="button" class="btn-secondary" onclick="pickAndFillAHJ('dnv')">DNV ✓</button>
+      <button type="button" class="btn-secondary" onclick="pickAndFillAHJ('burnaby')">Burnaby R1 ✓</button>
+      <button type="button" style="background:#fff; color:var(--brand-2); border:1px solid var(--brand-2);" onclick="pickAndFillAHJ('cnv_sf')">CNV SF + Suite</button>
+      <button type="button" style="background:#fff; color:var(--brand-2); border:1px solid var(--brand-2);" onclick="pickAndFillAHJ('cnv_th')">CNV Townhouse</button>
+      <button type="button" class="btn-secondary" onclick="pickAndFillAHJ('surrey_sf')">Surrey SF + Suite ✓</button>
+      <button type="button" style="background:#fff; color:var(--muted); border:1px solid var(--line);" onclick="pickAndFillAHJ('surrey_th')">Surrey Townhouse (4-6 units, not yet wired)</button>
+      <button type="button" class="btn-secondary" onclick="pickAndFillAHJ('maple')">Maple Ridge ✓</button>
+    </div>
+    <div class="note" id="export-status" style="margin-top:8px;">Pick the appropriate blank "Electrical Load Calculation" PDF for the jurisdiction. ✓ = AcroForm-fillable, verified · CNV forms use coordinate overlay (text drawn at fixed positions — open in viewer to verify alignment).</div>
+  </section>
+
+  <!-- Field notes -->
+  <section class="card no-print">
+    <h2>Field notes</h2>
+    <textarea id="notes" placeholder="Meter location, panel space, EVEMS priority, special conditions, AHJ comments…"></textarea>
+  </section>
+
+</main>
+
+<footer>
+  Kato Electrical · CEC 8-200 / 8-202 field load calc
+  · <a href="https://github.com/gdevlin-crypto/loadcalc/blob/main/SOP.md" target="_blank" rel="noopener" style="color:var(--brand-2);">How to use this tool (SOP)</a>
+</footer>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const num = id => { const el = $(id); const v = parseFloat(el && el.value); return isFinite(v) && v > 0 ? v : 0; };
+  const fmt = w => Math.round(w).toLocaleString() + " W";
+  const setLine = (k, w) => { const el = document.querySelector(`[data-k="${k}"]`); if (el) el.textContent = fmt(w); };
+  let LAST_CALC = null;  // captures calc state for PDF fill / exports
+
+  // ===== Unit configuration =====
+  let unitCount = 1;
+  function setUnits(n) {
+    unitCount = n;
+    document.querySelectorAll(".config-tile").forEach(t => t.classList.toggle("active", parseInt(t.dataset.units) === n));
+    $("unit-b-card") && ($("unit-b-card").style.display = (n >= 2) ? "" : "none");
+    $("unit-c-card") && ($("unit-c-card").style.display = (n >= 3) ? "" : "none");
+    $("tile-b") && $("tile-b").classList.toggle("hidden", n < 2);
+    $("tile-c") && $("tile-c").classList.toggle("hidden", n < 3);
+    calc();
+    save();
+  }
+
+  // ===== Unit B / C compact template =====
+  function compactUnitHTML(p, label, ruleLabel, cssClass) {
+    return `
+    <section class="card ${cssClass}" id="unit-${p}-card" style="display:none;">
+      <h2>Unit ${label} <span class="rule">${ruleLabel}</span></h2>
+      <p class="help">Basic load (8-200(2)): 3500 W first 45 m² + 1500 W next 45 m² (= 5000 W to 90 m²) + 1000 W per add'l 90 m².</p>
+
+      <div class="row">
+        <div><label>Living area (m²)</label><input id="${p}-area-m2" type="number" inputmode="decimal" min="0" step="1" oninput="syncArea('${p}','m')" /></div>
+        <div><label>…or (ft²)</label><input id="${p}-area-ft2" type="number" inputmode="decimal" min="0" step="1" oninput="syncArea('${p}','f')" /></div>
+      </div>
+
+      <p class="note" style="margin-top:12px;"><strong>Heat &amp; cooling</strong></p>
+      <div class="row">
+        <div><label>Baseboard total (W)</label><input id="${p}-bb-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+        <div><label>Other heat — boiler/furnace/duct/cable/patio/HP aux (W)</label><input id="${p}-other-heat-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+      </div>
+
+      <details>
+        <summary>Baseboard builder for this unit</summary>
+        <div class="bb-controls no-print">
+          <label for="${p}-bb-wpft" style="margin:0;">Spec:</label>
+          <select id="${p}-bb-wpft" style="width:auto; padding:6px 8px; font-size:14px;" onchange="bbCalc('${p}-')">
+            <option value="250">250 W/ft (standard residential)</option>
+            <option value="375">375 W/ft (Dimplex Linear Convector)</option>
+          </select>
+        </div>
+        <div class="bb-grid" id="${p}-bb-grid"></div>
+        <div class="bb-length">
+          <label>Extra by linear feet</label>
+          <div class="row-3">
+            <div><label class="sub-lbl">Length (ft)</label><input id="${p}-bb-ft" type="number" inputmode="decimal" min="0" step="0.5" oninput="bbCalc('${p}-')" /></div>
+            <div><label class="sub-lbl">= Watts</label><input id="${p}-bb-ft-w" type="number" readonly /></div>
+            <div><label class="sub-lbl">Custom W</label><input id="${p}-bb-custom-w" type="number" inputmode="numeric" min="0" step="50" oninput="bbCalc('${p}-')" /></div>
+          </div>
+        </div>
+        <div class="bb-summary">
+          <div><span>Builder total</span><strong id="${p}-bb-total">0 W</strong></div>
+          <div class="bb-detail" id="${p}-bb-detail">No heaters added yet.</div>
+          <div class="actions" style="margin-top:8px;">
+            <button type="button" class="btn-secondary no-print" onclick="applyBaseboard('${p}-')">Use this total ↑</button>
+            <button type="button" class="btn-ghost no-print" style="color:var(--brand-2); border-color:var(--brand-2);" onclick="resetBaseboard('${p}-')">Reset</button>
+          </div>
+        </div>
+      </details>
+      <div class="fla-box">
+        <div class="row-3">
+          <div><label class="sub-lbl">A/C FLA</label><input id="${p}-ac-fla" type="number" inputmode="decimal" min="0" step="0.1" /></div>
+          <div><label class="sub-lbl">A/C V</label><input id="${p}-ac-v" type="number" inputmode="numeric" min="0" value="240" /></div>
+          <div><label class="sub-lbl">= A/C Watts</label><input id="${p}-ac-w" type="number" inputmode="numeric" min="0" step="50" /></div>
+        </div>
+        <div class="row-3" style="margin-top:8px;">
+          <div><label class="sub-lbl">HP FLA</label><input id="${p}-hp-fla" type="number" inputmode="decimal" min="0" step="0.1" /></div>
+          <div><label class="sub-lbl">HP V</label><input id="${p}-hp-v" type="number" inputmode="numeric" min="0" value="240" /></div>
+          <div><label class="sub-lbl">= HP Watts</label><input id="${p}-hp-w" type="number" inputmode="numeric" min="0" step="50" /></div>
+        </div>
+      </div>
+
+      <p class="note" style="margin-top:12px;"><strong>Range / cooking</strong> — single range auto-applies 6000 W; only enter W if &gt; 12 kW</p>
+      <div class="row">
+        <div><label>Cooking equipment</label>
+          <select id="${p}-range-mode">
+            <option value="single">Single electric range (6000 W applied)</option>
+            <option value="separate">Separate cooktop + oven</option>
+            <option value="none">No electric range</option>
+          </select>
+        </div>
+        <div id="${p}-range-single-wrap"><label>Nameplate W (only if &gt; 12 kW)</label><input id="${p}-range-w" type="number" inputmode="numeric" min="0" step="100" placeholder="leave blank if ≤ 12 kW" /></div>
+      </div>
+      <div class="row" id="${p}-range-separate-wrap" style="display:none;">
+        <div><label>Cooktop (W)</label><input id="${p}-cooktop-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+        <div><label>Wall oven (W)</label><input id="${p}-oven-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+      </div>
+
+      <p class="note" style="margin-top:12px;"><strong>Tankless / spa / EV</strong></p>
+      <div class="row-3">
+        <div><label>Tankless WH (W)</label><input id="${p}-tankless-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+        <div><label>Spa/pool (W)</label><input id="${p}-spa-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+        <div><label>EVSE / EVEMS (W)</label><input id="${p}-ev-w" type="number" inputmode="numeric" min="0" step="100" /></div>
+      </div>
+
+      <p class="note" style="margin-top:12px;"><strong>Other loads ≥1500 W</strong></p>
+      <div class="vii-mode" style="background:#fff;">
+        <strong id="${p}-vii-label">(A) Range installed → 25% per load</strong>
+      </div>
+      <div class="row-3">
+        <div><label>Dryer (W)</label><input class="ol" type="number" inputmode="numeric" min="0" step="50" id="${p}-ol-dryer" /></div>
+        <div><label>HWT (W)</label><input class="ol" type="number" inputmode="numeric" min="0" step="50" id="${p}-ol-hwt" /></div>
+        <div><label>Other (W)</label><input class="ol" type="number" inputmode="numeric" min="0" step="50" id="${p}-ol-other" /></div>
+      </div>
+
+      <div class="summary-line"><span>Heating total / Cooling total / Carried</span><strong id="${p}-hvac-out">— / — / —</strong></div>
+      <div class="summary-line" style="background:#0e7490; color:#fff;" id="${p}-unit-row"><span>Unit ${label} calculated demand</span><strong id="${p}-unit-total" style="color:#fff;">0 W</strong></div>
+    </section>`;
+  }
+
+  // Render compact units
+  $("unit-hosts").innerHTML =
+    compactUnitHTML("b", "B — Secondary Suite", "8-200(2)", "unit-b") +
+    compactUnitHTML("c", "C — Laneway House",  "8-200(2)", "unit-c");
+
+  // ===== Baseboard builder (Unit A only) =====
+  const BB_SIZES = [
+    {w:500,ft:"2 ft"},{w:750,ft:"3 ft"},{w:1000,ft:"4 ft"},{w:1250,ft:"5 ft"},
+    {w:1500,ft:"6 ft"},{w:1750,ft:"7 ft"},{w:2000,ft:"8 ft"},{w:2500,ft:"10 ft"}
+  ];
+  // Baseboard builder helpers — prefix is "" for Unit A, "b-" for B, "c-" for C
+  function renderBaseboardGrid(prefix) {
+    prefix = prefix || "";
+    const g = $(prefix + "bb-grid"); if (!g) return;
+    g.innerHTML = BB_SIZES.map(s => `
+      <div class="bb-cell">
+        <div class="size">${s.w} W</div><div class="ft">${s.ft}</div>
+        <div class="qty-row">
+          <button type="button" onclick="adjustBB('${prefix}',${s.w},-1)">−</button>
+          <input class="qty" type="number" min="0" inputmode="numeric" id="${prefix}bb-q-${s.w}" value="0" oninput="bbCalc('${prefix}')" />
+          <button type="button" onclick="adjustBB('${prefix}',${s.w},1)">+</button>
+        </div>
+      </div>`).join("");
+  }
+  function adjustBB(prefix, w, d) {
+    prefix = prefix || "";
+    const e = $(prefix+"bb-q-"+w);
+    e.value = Math.max(0, (parseInt(e.value)||0) + d);
+    bbCalc(prefix);
+  }
+  function bbCalc(prefix) {
+    prefix = prefix || "";
+    const ft = parseFloat(($(prefix+"bb-ft")||{}).value)||0;
+    const wpft = parseFloat(($(prefix+"bb-wpft")||{}).value)||250;
+    const lenW = Math.round(ft*wpft);
+    const ftwEl = $(prefix+"bb-ft-w"); if (ftwEl) ftwEl.value = lenW || "";
+    let total = 0; const parts = [];
+    BB_SIZES.forEach(s => {
+      const q = parseInt(($(prefix+"bb-q-"+s.w)||{}).value)||0;
+      if (q>0) { total += q*s.w; parts.push(`${q}× ${s.w} W`); }
+    });
+    if (lenW>0) { total += lenW; parts.push(`${ft} ft @ ${wpft} W/ft = ${lenW} W`); }
+    const cust = parseInt(($(prefix+"bb-custom-w")||{}).value)||0;
+    if (cust>0) { total += cust; parts.push(`custom ${cust} W`); }
+    const totalEl = $(prefix+"bb-total"); if (totalEl) totalEl.textContent = total.toLocaleString()+" W";
+    const detailEl = $(prefix+"bb-detail"); if (detailEl) detailEl.textContent = parts.length ? parts.join("  •  ") : "No heaters added yet.";
+    save();
+  }
+  function applyBaseboard(prefix) {
+    prefix = prefix || "";
+    const t = parseInt(($(prefix+"bb-total")||{}).textContent.replace(/[^\d]/g,""))||0;
+    if (t>0) {
+      // For prefix "", target Unit A's bb-w (a-bb-w). For "b-" target b-bb-w. For "c-" target c-bb-w.
+      const unitId = prefix === "" ? "a-" : prefix;
+      const targetEl = $(unitId+"bb-w");
+      if (targetEl) { targetEl.value = t; calc(); targetEl.scrollIntoView({behavior:"smooth",block:"center"}); }
+    }
+  }
+  function resetBaseboard(prefix) {
+    prefix = prefix || "";
+    BB_SIZES.forEach(s => { const e=$(prefix+"bb-q-"+s.w); if (e) e.value=0; });
+    const f = $(prefix+"bb-ft"); if (f) f.value="";
+    const fw = $(prefix+"bb-ft-w"); if (fw) fw.value="";
+    const cw = $(prefix+"bb-custom-w"); if (cw) cw.value="";
+    bbCalc(prefix);
+  }
+
+  // ===== Area sync per unit =====
+  function syncArea(p, src) {
+    const m = $(p+"-area-m2"), f = $(p+"-area-ft2");
+    if (!m || !f) return;
+    if (src === 'm' && m.value !== "") f.value = (parseFloat(m.value)*10.7639).toFixed(0);
+    else if (src === 'f' && f.value !== "") m.value = (parseFloat(f.value)/10.7639).toFixed(1);
+    calc();
+  }
+
+  // ===== FLA × V helpers per unit =====
+  function flaSync(p, kind) {
+    const fla = parseFloat($(p+"-"+kind+"-fla").value);
+    const v = parseFloat($(p+"-"+kind+"-v").value);
+    if (isFinite(fla) && fla>0 && isFinite(v) && v>0) {
+      $(p+"-"+kind+"-w").value = Math.round(fla*v);
+    }
+  }
+  function wireFla() {
+    ["a","b","c"].forEach(p => {
+      ["ac","hp"].forEach(k => {
+        const fla = $(p+"-"+k+"-fla"), v = $(p+"-"+k+"-v");
+        if (fla) fla.addEventListener("input", () => flaSync(p,k));
+        if (v) v.addEventListener("input", () => flaSync(p,k));
+      });
+    });
+  }
+
+  // ===== Range mode toggle per unit =====
+  function syncRangeMode(p) {
+    const m = $(p+"-range-mode"); if (!m) return;
+    $(p+"-range-single-wrap").style.display = (m.value==="single") ? "" : "none";
+    $(p+"-range-separate-wrap").style.display = (m.value==="separate") ? "" : "none";
+  }
+  function wireRangeModes() {
+    ["a","b","c"].forEach(p => {
+      const m = $(p+"-range-mode");
+      if (m) m.addEventListener("change", () => { syncRangeMode(p); calc(); });
+    });
+  }
+
+  // ===== Per-unit calc =====
+  function calcUnit(p, basicMode /* "single" or "multi" */) {
+    const areaM2 = num(p+"-area-m2");
+
+    // Basic load
+    let basic = 0;
+    if (areaM2 > 0) {
+      if (basicMode === "single") {
+        basic = 5000;
+        if (areaM2 > 90) basic += Math.ceil((areaM2-90)/90)*1000;
+      } else {
+        // 8-200(2) multi-unit: 3500 W first 45 m² + 1500 W second 45 m² (or portion) + 1000 W per add'l 90 m² (or portion)
+        basic = 3500;
+        if (areaM2 > 45) basic += 1500;
+        if (areaM2 > 90) basic += Math.ceil((areaM2-90)/90)*1000;
+      }
+    }
+
+    // Heat & cooling
+    const bbConn = num(p+"-bb-w");
+    const otherHeat = num(p+"-other-heat-w");
+    const bbDemand = bbConn <= 10000 ? bbConn : 10000 + (bbConn-10000)*0.75;
+    const heatTotal = bbDemand + otherHeat;
+    const ac = num(p+"-ac-w");
+    const hp = num(p+"-hp-w");
+    const coolTotal = ac + hp;
+    const interlock = $("hvac-interlock").value !== "no";
+    const carried = interlock ? Math.max(heatTotal, coolTotal) : (heatTotal + coolTotal);
+
+    // Range / cooking (iv) — single range auto-applies 6000 W; only adjust if nameplate > 12 kW
+    const rangeMode = ($(p+"-range-mode")||{}).value || "single";
+    let rangeRating = 0;
+    let rangeDemand = 0;
+    if (rangeMode === "single") {
+      const explicit = num(p+"-range-w");
+      rangeRating = explicit > 0 ? explicit : 12000; // assume 12 kW if not specified
+      rangeDemand = rangeRating <= 12000 ? 6000 : 6000 + (rangeRating-12000)*0.4;
+    } else if (rangeMode === "separate") {
+      rangeRating = num(p+"-cooktop-w") + num(p+"-oven-w");
+      if (rangeRating > 0) rangeDemand = rangeRating <= 12000 ? 6000 : 6000 + (rangeRating-12000)*0.4;
+    }
+    // else "none" → 0
+    if (p === "a") { const o = $("a-range-out"); if (o) o.textContent = fmt(rangeDemand); }
+
+    // Tankless / spa / EV
+    const tankless = num(p+"-tankless-w") + num(p+"-spa-w");
+    const ev = num(p+"-ev-w");
+
+    // Other ≥1500 W (vii)
+    let otherKeys;
+    if (p === "a") {
+      otherKeys = ["a-ol-dryer","a-ol-hwt","a-ol-dish","a-ol-hottub","a-ol-pool","a-ol-sauna","a-ol-c1-w","a-ol-c2-w","a-ol-c3-w"];
+    } else {
+      otherKeys = [p+"-ol-dryer", p+"-ol-hwt", p+"-ol-other"];
+    }
+    let otherTotal = 0;
+    otherKeys.forEach(k => { const v = num(k); if (v >= 1500) otherTotal += v; });
+    const hasRange = (rangeMode !== "none") && rangeRating > 0;
+    let otherDemand = 0;
+    if (hasRange) otherDemand = otherTotal * 0.25;
+    else {
+      if (otherTotal <= 6000) otherDemand = otherTotal;
+      else otherDemand = 6000 + (otherTotal-6000)*0.25;
+    }
+
+    // Update unit-level UI
+    if (p === "a") {
+      $("a-heat-out").textContent = fmt(heatTotal);
+      $("a-cool-out").textContent = fmt(coolTotal);
+      $("a-hvac-out").textContent = fmt(carried);
+      $("a-hvac-label").textContent = interlock ? "Carried — larger of heat or cool (8-106(3))" : "Heat + Cool combined (not interlocked)";
+      $("a-other-connected").textContent = fmt(otherTotal);
+      $("a-other-demand").textContent = fmt(otherDemand);
+      $("a-vii-label").textContent = hasRange ? "(A) Range installed → 25% per load" : "(B) No range → 100% up to 6000 W + 25% remainder";
+      $("a-vii-sub").textContent = hasRange ? "Per CEC 8-200(1)(a)(vii)(A)." : "Per CEC 8-200(1)(a)(vii)(B) — accounts for future cooking equipment.";
+    } else {
+      const el = $(p+"-hvac-out"); if (el) el.textContent = `${fmt(heatTotal)} / ${fmt(coolTotal)} / ${fmt(carried)}` + (interlock ? "" : " (both added)");
+      const lab = $(p+"-vii-label"); if (lab) lab.textContent = hasRange ? "(A) Range installed → 25% per load" : "(B) No range → 100% up to 6000 W + 25% remainder";
+    }
+
+    const unitTotal = basic + carried + rangeDemand + tankless + ev + otherDemand;
+    $(p+"-unit-total").textContent = fmt(unitTotal);
+
+    return {
+      id: p, area: areaM2,
+      basic, bbConn, bbDemand, otherHeat, heatTotal,
+      ac, hp, coolTotal, carried,
+      range: rangeDemand, tankless, ev,
+      otherTotal, otherDemand,
+      unitTotal,
+      // "carryable" = total excluding heat, AC, HP, EV (used in 8-202 cascade)
+      carryable: basic + rangeDemand + tankless + otherDemand
+    };
+  }
+
+  // ===== Main calc =====
+  function calc() {
+    const units = [];
+    units.push(calcUnit("a","single"));
+    if (unitCount >= 2) units.push(calcUnit("b","multi"));
+    if (unitCount >= 3) units.push(calcUnit("c","multi"));
+
+    const v = parseFloat($("voltage").value) || 240;
+
+    // Per-unit display
+    units.forEach(u => {
+      const minA = (u.area >= 80) ? 100 : 60;
+      const reqA = Math.max(u.unitTotal / v, minA);
+      const sizes = [60,100,125,150,200,225,300,320,400];
+      const rec = sizes.find(s => s >= reqA) || ">400";
+      const amps = (u.unitTotal / v).toFixed(1);
+      $("tile-"+u.id+"-amps").textContent = amps + " A";
+      $("tile-"+u.id+"-breaker").textContent = "→ " + rec + " A breaker (min " + minA + ")";
+    });
+
+    const metering = $("metering").value;
+    const interlock = $("hvac-interlock").value !== "no";
+    let consumerTotal = 0;
+    const isSingle = units.length === 1 || metering === "separate";
+
+    if (isSingle) {
+      // Single-unit breakdown — show straight 8-200(1) calc, hide cascade
+      $("breakdown-single").style.display = "";
+      $("breakdown-cascade").style.display = "none";
+
+      const u = units[0]; // Principal
+      consumerTotal = u.unitTotal;
+      $("result-mode").textContent = units.length === 1
+        ? "Principal only — 8-200(1)"
+        : "Separately metered — Unit A shown (see tiles for B/C)";
+
+      setLine("s-basic", u.basic);
+      setLine("s-bb-conn", u.bbConn);
+      setLine("s-bb-dem", u.bbDemand);
+      setLine("s-other-heat", u.otherHeat);
+      setLine("s-cool", u.coolTotal);
+      setLine("s-carried", u.carried);
+      setLine("s-range", u.range);
+      setLine("s-tankless", u.tankless);
+      setLine("s-ev", u.ev);
+      setLine("s-other", u.otherDemand);
+      setLine("s-total", u.unitTotal);
+      $("s-carry-label").textContent = interlock
+        ? "Carried — larger of heat or cool (8-106(3))"
+        : "Heat + Cool combined (not interlocked)";
+    } else {
+      // Multi-unit cascade — 8-202(3)
+      $("breakdown-single").style.display = "none";
+      $("breakdown-cascade").style.display = "";
+
+      const sorted = [...units].sort((a,b) => b.carryable - a.carryable);
+      const w = [1.0, 0.65, 0.65, 0.4, 0.4, 0.25];
+      let cascadeBase = 0;
+      const cascadeWeighted = sorted.map((u,i) => {
+        const factor = w[i] != null ? w[i] : 0.25;
+        const c = u.carryable * factor;
+        cascadeBase += c;
+        return c;
+      });
+      setLine("cascade-h", cascadeWeighted[0] || 0);
+      setLine("cascade-n1", cascadeWeighted[1] || 0);
+      setLine("cascade-n2", cascadeWeighted[2] || 0);
+
+      const bbConnAll = units.reduce((s,u) => s + u.bbConn, 0);
+      const bbDemandAll = bbConnAll <= 10000 ? bbConnAll : 10000 + (bbConnAll-10000)*0.75;
+      const otherHeatAll = units.reduce((s,u) => s + u.otherHeat, 0);
+      const acAll = units.reduce((s,u) => s + u.ac, 0);
+      const hpAll = units.reduce((s,u) => s + u.hp, 0);
+      const heatAll = bbDemandAll + otherHeatAll;
+      const coolAll = acAll + hpAll;
+      const carriedAll = interlock ? Math.max(heatAll, coolAll) : (heatAll + coolAll);
+      const evAll = units.reduce((s,u) => s + u.ev, 0);
+
+      setLine("cascade-bb", bbDemandAll);
+      setLine("cascade-other", otherHeatAll);
+      setLine("cascade-cool", coolAll);
+      setLine("cascade-carried", carriedAll);
+      setLine("cascade-ev", evAll);
+      $("cascade-carry-label").textContent = interlock
+        ? "Larger of heat / cool carried (8-106(3))"
+        : "Heat + Cool combined (not interlocked)";
+
+      consumerTotal = cascadeBase + carriedAll + evAll;
+      $("result-mode").textContent = "Combined service · " + units.length + " units · 8-202(3) cascade";
+    }
+
+    setLine("total", consumerTotal);
+    const consumerAmps = consumerTotal / v;
+    $("amps").textContent = consumerAmps.toFixed(1) + " A";
+    $("watts").textContent = fmt(consumerTotal) + " @ " + v + " V";
+
+    // Service recommendation
+    const principalArea = units[0].area;
+    const minA = (principalArea >= 80) ? 100 : 60;
+    const required = Math.max(consumerAmps, minA);
+    const sizes = [60,100,125,150,200,225,300,320,400];
+    const rec = sizes.find(s => s >= required) || null;
+    if (rec) $("service-rec").innerHTML = `<strong style="color:#fff;">${rec} A service</strong> recommended (calculated ${consumerAmps.toFixed(1)} A, code minimum ${minA} A).`;
+    else $("service-rec").innerHTML = `<strong style="color:#fff;">Over 400 A</strong> — design service required.`;
+
+    // Capture computed state so exports (PDF fill, etc.) have access
+    LAST_CALC = {
+      units, isSingle, metering, interlock,
+      consumerTotal, consumerAmps, recSize: rec, voltage: v
+    };
+
+    save();
+  }
+
+  // ===== Persistence =====
+  const TEXT_FIELDS_FIXED = [
+    "addr","jurisdiction","permit-elec","permit-bldg","contractor","contractor-lic","fsr-name","fsr-reg","contractor-email","contractor-phone","tech","date",
+    "svc-orient","svc-upgrading","svc-ex-v","svc-ex-a","svc-ex-ph","svc-new-v","svc-new-a","svc-new-ph","svc-meters","svc-cond","voltage",
+    "metering","ev-mode","hvac-interlock",
+    "bb-wpft","bb-ft","bb-custom-w","notes"
+  ];
+  function unitFieldIds(p) {
+    if (p === "a") {
+      return [
+        "a-area-m2","a-area-ft2","a-bb-w","a-other-heat-w",
+        "a-ac-fla","a-ac-v","a-ac-w","a-hp-fla","a-hp-v","a-hp-w",
+        "a-range-mode","a-range-w","a-cooktop-w","a-oven-w",
+        "a-tankless-w","a-spa-w","a-ev-w",
+        "a-ol-dryer","a-ol-hwt","a-ol-dish","a-ol-hottub","a-ol-pool","a-ol-sauna",
+        "a-ol-c1-name","a-ol-c1-w","a-ol-c2-name","a-ol-c2-w","a-ol-c3-name","a-ol-c3-w"
+      ];
+    }
+    return [
+      p+"-area-m2", p+"-area-ft2", p+"-bb-w", p+"-other-heat-w",
+      p+"-ac-fla", p+"-ac-v", p+"-ac-w", p+"-hp-fla", p+"-hp-v", p+"-hp-w",
+      p+"-range-mode", p+"-range-w", p+"-cooktop-w", p+"-oven-w",
+      p+"-tankless-w", p+"-spa-w", p+"-ev-w",
+      p+"-ol-dryer", p+"-ol-hwt", p+"-ol-other"
+    ];
+  }
+  const ALL_TEXT = () => TEXT_FIELDS_FIXED.concat(unitFieldIds("a"), unitFieldIds("b"), unitFieldIds("c"));
+  // Per-unit baseboard builder fields (Unit A has no prefix; B and C use "b-"/"c-")
+  function bbFieldsForPrefix(prefix) {
+    return BB_SIZES.map(s => prefix + "bb-q-" + s.w).concat([
+      prefix + "bb-wpft", prefix + "bb-ft", prefix + "bb-ft-w", prefix + "bb-custom-w"
+    ]);
+  }
+  const BB_FIELDS = () => bbFieldsForPrefix("").concat(bbFieldsForPrefix("b-"), bbFieldsForPrefix("c-"));
+
+  function save() {
+    const data = { unitCount };
+    ALL_TEXT().forEach(id => { const e=$(id); if (e) data[id]=e.value; });
+    BB_FIELDS().forEach(id => { const e=$(id); if (e) data[id]=e.value; });
+    try { localStorage.setItem("kato-loadcalc-v3", JSON.stringify(data)); } catch(e) {}
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem("kato-loadcalc-v3");
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data.unitCount) unitCount = data.unitCount;
+      ALL_TEXT().forEach(id => { const e=$(id); if (e && data[id]!=null) e.value=data[id]; });
+      BB_FIELDS().forEach(id => { const e=$(id); if (e && data[id]!=null) e.value=data[id]; });
+    } catch(e) {}
+  }
+  // Fields that survive Reset — shop info (contractor, FSR, contact, tech, jurisdiction)
+  const STICKY_FIELDS = new Set([
+    "contractor","contractor-lic","fsr-name","fsr-reg",
+    "contractor-email","contractor-phone","tech","jurisdiction"
+  ]);
+
+  function resetForm() {
+    if (!confirm("Start a new calc?\n\nKeeps: contractor, FSR, email, phone, tech, jurisdiction.\nClears: project address, permit #s, and all calc inputs.")) return;
+    ALL_TEXT().forEach(id => {
+      if (STICKY_FIELDS.has(id)) return;          // keep shop info
+      const e=$(id); if (!e) return;
+      if (e.tagName==="SELECT") e.selectedIndex=0; else e.value="";
+    });
+    BB_FIELDS().forEach(id => { const e=$(id); if (e) e.value=0; });
+    // Restore V=240 defaults for FLA helpers
+    ["a","b","c"].forEach(p => {
+      ["ac","hp"].forEach(k => {
+        const v = $(p+"-"+k+"-v"); if (v) v.value = "240";
+      });
+    });
+    initDate(); unitCount=1; setUnits(1);
+    ["a","b","c"].forEach(p => syncRangeMode(p));
+    bbCalc(""); bbCalc("b-"); bbCalc("c-");
+    calc();
+    save();  // persist the new state with shop info preserved
+    window.scrollTo({top:0, behavior:"smooth"});
+  }
+  function initDate() {
+    if (!$("date").value) $("date").value = new Date().toISOString().slice(0,10);
+  }
+
+  document.addEventListener("input", calc);
+  document.addEventListener("change", calc);
+
+  // ===== Embedded blank Vancouver PDF =====
+  // Blank "Electrical Load Calculation for One-Family Dwelling..." form, 2024 CE Code, rev 2025-03-07.
+  // Stored as base64 chunks (one push per chunk) so the techs/office never need to attach the blank.
+  const VANCOUVER_PDF_PARTS = [];
+  /*PDF_CHUNK_INSERTION_POINT*/
+  function vancouverBlankBytes() {
+    const b64 = VANCOUVER_PDF_PARTS.join("");
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out.buffer;
+  }
+
+  // ===== Vancouver PDF fill =====
+  // Mapping verified visually against blank Vancouver PDF (CSA C22.1 8-200/8-202).
+  const VANCOUVER_PDF_FIELDS = {
+    addr: "Please complete the appropriate table cells and check boxes accordingly",
+    a: {
+      area: "Text1.0",
+      basicI: "m²Identifying the total living areas Rule 8110 8200 1 a i a basic load of 5000 W for the first 90 m² or less of living area plus ii 1000 W for each 90 m² or portion thereof plus",
+      basicII: "m²Identifying the total living areas Rule 8110 8200 1 a i a basic load of 5000 W for the first 90 m² or less of living area plus ii 1000 W for each 90 m² or portion thereof plus_2",
+      bb: "m²Baseboard Heat",
+      hp: "m²Heat Pump",
+      ac: "m²Airconditioning",
+      otherHeat: "m²Other",
+      range: "m²Row7",
+      tankless: "m²Row8",
+      ev: "m²100 EVSE",
+      evDeduction: "m²Deduction of EVSE loads",
+      dryer: "m²Dryer",
+      hwt: "m²HWT",
+      otherVii: "m²Other_3",
+      total: "Text4.0",
+      breaker: "Text5.0",
+      conductor: "AType  size of servicefeeder AWG  kcmil Cu  Al"
+    },
+    b: {
+      area: "Text1.1",
+      basicI: "Text2.0.0",
+      basicII: "Text2.0.1",
+      bb: "Text2.1", hp: "Text2.2", ac: "Text2.3", otherHeat: "Text2.4",
+      range: "Text2.5", tankless: "Text2.6",
+      ev: "Text2.7", evDeduction: "Text2.8",
+      dryer: "Text2.9", hwt: "Text2.10", otherVii: "Text2.11",
+      total: "Text4.1", breaker: "Text5.1",
+      conductor: "AType  size of servicefeeder AWG  kcmil Cu  Al_2"
+    },
+    c: {
+      area: "Text1.2",
+      basicI: "m²Row1",
+      basicII: "m²Identifying the total living areas Rule 8110 8200 1 a i a basic load of 5000 W for the first 90 m² or less of living area plus ii 1000 W for each 90 m² or portion thereof plus_3",
+      bb: "m²Baseboard Heat_2",
+      hp: "m²Heat Pump_2",
+      ac: "m²Airconditioning_2",
+      otherHeat: "m²Other_2",
+      range: "m²Row7_2",
+      tankless: "m²Row8_2",
+      ev: "m²100 EVSE_2",
+      evDeduction: "m²Deduction of EVSE loads_2",
+      dryer: "m²Dryer_2",
+      hwt: "m²HWT_2",
+      otherVii: "m²Other_4",
+      total: "Text4.2", breaker: "Text5.2",
+      conductor: "AType  size of servicefeeder AWG  kcmil Cu  Al_3"
+    },
+    cascade: {
+      heaviest: "100 of the unit having the heaviest load Rule 8202 3 a i excluding any EVSE loads electric spaceheating loads airconditioning loads unit A  B",
+      next1: "65 of the unit having the same or next smaller load Rule 8202 3 a ii excluding any EVSE loads electric spaceheating loads airconditioning loads unit A  B",
+      next2: "65 of the unit having the same or next smaller load Rule 8202 3 a ii excluding any EVSE loads electric spaceheating loads airconditioning loads Suite C  D",
+      bb: "Baseboard heating load100 of the first 10 kW 75 for any amount over 10 kW Rule 8202 3 b Subject to Rule 8106 3",
+      otherHeat: "Electric spaceheating loads Rule 8202 3 b Subject to Rule 8106 3",
+      ac: "Airconditioning loads Rule 8202 3 c iii Subject to Rule 8106 3",
+      hp: "Heat Pump Motor Loads Rule 8202 3 c iii Subject to Rule 8106 3",
+      carried: "Where interlocks are installed determine the larger ac  heating load from above Rule 8106 3 larger load to be considered in the determination of the calculated load",
+      ev: "100 of EVSE loads supplied from units panel As per Rule 8202 1 a vii"
+    },
+    footer: {
+      totalAmps: "Text6",
+      totalWatts: "Text7",
+      serviceAmpacity: "Text8",
+      voltage: "Text9",
+      conductor: "Text10",
+      meters: "How many BC Hydro meters",
+      contractor: "Electrical Contractor Name  License Number",
+      email: "Email",
+      phone: "Phone Number",
+      fsr: "FSR Name  Registration Number",
+      date: "Date",
+      unmeteredB: "Text3"
+    }
+  };
+
+  function conductorFor(amps) {
+    if (amps <= 60) return "#6 Cu";
+    if (amps <= 100) return "#3 Cu";
+    if (amps <= 125) return "#1 Cu";
+    if (amps <= 150) return "1/0 Cu";
+    if (amps <= 200) return "3/0 Cu";
+    if (amps <= 225) return "4/0 Cu";
+    if (amps <= 300) return "350 kcmil Cu";
+    return "500 kcmil Cu";
+  }
+
+  function buildVancouverFieldMap() {
+    if (!LAST_CALC) calc();
+    const c = LAST_CALC;
+    const wStr = n => (n > 0) ? String(Math.round(n)) : "";
+
+    const sizes = [60,100,125,150,200,225,300,320,400];
+    function perUnit(pid, isPrincipal) {
+      const u = c.units.find(x => x.id === pid);
+      if (!u) return { area:"", basicI:"", basicII:"", bb:"", hp:"", ac:"", otherHeat:"", range:"", tankless:"", ev:"", dryer:"", hwt:"", otherVii:"", total:"", breaker:"", breakerAmps:0 };
+      const area = u.area || 0;
+      let basicI = 0, basicII = 0;
+      if (area > 0) {
+        basicI = isPrincipal ? 5000 : (area > 45 ? 5000 : 3500);
+        if (area > 90) basicII = Math.ceil((area - 90) / 90) * 1000;
+      }
+      const minA = (area >= 80) ? 100 : 60;
+      const reqA = Math.max(u.unitTotal / c.voltage, minA);
+      const breakerAmps = sizes.find(s => s >= reqA) || 400;
+      // Itemized (vii) totals
+      let dryer = 0, hwt = 0, otherVii = 0;
+      if (pid === "a") {
+        dryer = num("a-ol-dryer"); hwt = num("a-ol-hwt");
+        otherVii = num("a-ol-dish") + num("a-ol-hottub") + num("a-ol-pool") + num("a-ol-sauna")
+                 + num("a-ol-c1-w") + num("a-ol-c2-w") + num("a-ol-c3-w");
+      } else {
+        dryer = num(pid+"-ol-dryer"); hwt = num(pid+"-ol-hwt"); otherVii = num(pid+"-ol-other");
+      }
+      return {
+        area: wStr(area),
+        basicI: wStr(basicI),
+        basicII: wStr(basicII),
+        bb: wStr(u.bbDemand),
+        hp: wStr(u.hp),
+        ac: wStr(u.ac),
+        otherHeat: wStr(u.otherHeat),
+        range: wStr(u.range),
+        tankless: wStr(u.tankless),
+        ev: wStr(u.ev),
+        dryer: wStr(dryer),
+        hwt: wStr(hwt),
+        otherVii: wStr(otherVii),
+        total: wStr(u.unitTotal),
+        breaker: String(breakerAmps),
+        breakerAmps
+      };
+    }
+
+    const A = perUnit("a", true);
+    const B = perUnit("b", false);
+    const C = perUnit("c", false);
+
+    // Cascade — compute fresh from units (always populated, even if Principal-only)
+    const sorted = [...c.units].sort((a,b) => b.carryable - a.carryable);
+    const wt = [1.0, 0.65, 0.65, 0.4, 0.4, 0.25];
+    const heaviest = (sorted[0]?.carryable || 0) * (wt[0] || 0);
+    const next1 = (sorted[1]?.carryable || 0) * (wt[1] || 0);
+    const next2 = (sorted[2]?.carryable || 0) * (wt[2] || 0);
+    const bbConnAll = c.units.reduce((s,u) => s + u.bbConn, 0);
+    const bbDemandAll = bbConnAll <= 10000 ? bbConnAll : 10000 + (bbConnAll - 10000)*0.75;
+    const otherHeatAll = c.units.reduce((s,u) => s + u.otherHeat, 0);
+    const acAll = c.units.reduce((s,u) => s + u.ac, 0);
+    const hpAll = c.units.reduce((s,u) => s + u.hp, 0);
+    const carriedAll = c.interlock
+      ? Math.max(bbDemandAll + otherHeatAll, acAll + hpAll)
+      : (bbDemandAll + otherHeatAll + acAll + hpAll);
+    const evAll = c.units.reduce((s,u) => s + u.ev, 0);
+
+    const F = VANCOUVER_PDF_FIELDS;
+    const m = {};
+    m[F.addr] = $("addr").value || "";
+
+    // Per-unit
+    [["a", A], ["b", B], ["c", C]].forEach(([id, u]) => {
+      const f = F[id];
+      m[f.area] = u.area;
+      m[f.basicI] = u.basicI;
+      m[f.basicII] = u.basicII;
+      m[f.bb] = u.bb;
+      m[f.hp] = u.hp;
+      m[f.ac] = u.ac;
+      m[f.otherHeat] = u.otherHeat;
+      m[f.range] = u.range;
+      m[f.tankless] = u.tankless;
+      m[f.ev] = u.ev;
+      m[f.evDeduction] = ""; // EVEMS deduction — user fills if applicable
+      m[f.dryer] = u.dryer;
+      m[f.hwt] = u.hwt;
+      m[f.otherVii] = u.otherVii;
+      m[f.total] = u.total;
+      m[f.breaker] = u.total ? u.breaker : "";
+      m[f.conductor] = u.total ? conductorFor(u.breakerAmps) : "";
+    });
+
+    // Cascade
+    m[F.cascade.heaviest] = wStr(heaviest);
+    m[F.cascade.next1] = wStr(next1);
+    m[F.cascade.next2] = wStr(next2);
+    m[F.cascade.bb] = wStr(bbDemandAll);
+    m[F.cascade.otherHeat] = wStr(otherHeatAll);
+    m[F.cascade.ac] = wStr(acAll);
+    m[F.cascade.hp] = wStr(hpAll);
+    m[F.cascade.carried] = wStr(carriedAll);
+    m[F.cascade.ev] = wStr(evAll);
+
+    // Footer
+    const svcCond = $("svc-cond").value || (c.recSize ? conductorFor(c.recSize) : "");
+    m[F.footer.totalAmps] = c.consumerAmps ? String(Math.round(c.consumerAmps)) : "";
+    m[F.footer.totalWatts] = c.consumerTotal ? String(Math.round(c.consumerTotal)) : "";
+    m[F.footer.serviceAmpacity] = c.recSize ? String(c.recSize) : "";
+    m[F.footer.voltage] = String(c.voltage);
+    m[F.footer.conductor] = svcCond;
+    m[F.footer.meters] = $("svc-meters").value || "";
+    const cn = [$("contractor").value, $("contractor-lic").value].filter(Boolean).join(" — ");
+    const fsr = [$("fsr-name").value, $("fsr-reg").value].filter(Boolean).join(" — ");
+    m[F.footer.contractor] = cn;
+    m[F.footer.email] = $("contractor-email").value || "";
+    m[F.footer.phone] = $("contractor-phone").value || "";
+    m[F.footer.fsr] = fsr;
+    m[F.footer.date] = $("date").value || "";
+    m[F.footer.unmeteredB] = "";
+
+    return m;
+  }
+
+  function loadScript(url) {
+    return new Promise((resolve, reject) => {
+      if (window.PDFLib) { resolve(); return; }
+      const s = document.createElement("script");
+      s.src = url; s.onload = () => resolve(); s.onerror = () => reject(new Error("Failed to load " + url));
+      document.head.appendChild(s);
+    });
+  }
+  function setExportStatus(msg, isError) {
+    const el = $("export-status");
+    if (el) { el.textContent = msg; el.style.color = isError ? "#b91c1c" : ""; }
+  }
+
+  // ===== Multi-AHJ filler architecture =====
+  async function pickAndFillAHJ(slug) {
+    const ahj = AHJ_FILLERS[slug];
+    if (!ahj) return;
+    if (!ahj.buildMap && !ahj.buildCoords) {
+      setExportStatus(`${ahj.name}: ${ahj.note || "mapping in progress — coming soon."}`);
+      return;
+    }
+    // Try fetching the blank from same-origin URL first (GitHub Pages-hosted).
+    // Retry once with cache:"reload" to defeat any stale 404 in the browser cache.
+    if (ahj.blankUrl) {
+      const tryFetch = async (cacheMode) => {
+        try {
+          const resp = await fetch(ahj.blankUrl, { cache: cacheMode });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            return new File([blob], ahj.blankUrl, { type: 'application/pdf' });
+          }
+          console.warn(`fetch(${ahj.blankUrl}, ${cacheMode}) → ${resp.status}`);
+        } catch (e) { console.warn(`fetch(${ahj.blankUrl}, ${cacheMode}) failed: ${e.message}`); }
+        return null;
+      };
+      setExportStatus(`Fetching ${ahj.name} blank…`);
+      let file = await tryFetch("default");
+      if (!file) {
+        setExportStatus(`Retrying ${ahj.name} blank (fresh fetch)…`);
+        file = await tryFetch("reload");
+      }
+      if (file) { await fillAHJ(slug, file); return; }
+      setExportStatus(`Couldn't auto-fetch ${ahj.name} blank — pick it manually.`);
+    }
+    // File-picker fallback
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/pdf";
+    input.onchange = async e => {
+      const f = e.target.files && e.target.files[0];
+      if (f) await fillAHJ(slug, f);
+    };
+    input.click();
+  }
+
+  async function fillAHJ(slug, file) {
+    const ahj = AHJ_FILLERS[slug];
+    try {
+      setExportStatus(`Loading pdf-lib for ${ahj.name}…`);
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js");
+      setExportStatus(`Reading ${ahj.name} PDF…`);
+      const buf = await file.arrayBuffer();
+      const pdfDoc = await PDFLib.PDFDocument.load(buf);
+
+      let filled = 0, missing = [];
+
+      if (ahj.type === "overlay") {
+        // Coordinate overlay path — used for CNV (PDF has no form fields).
+        const helv = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+        const cells = ahj.buildCoords();
+        setExportStatus(`Drawing ${ahj.name} (${cells.length} cells)…`);
+        for (const cell of cells) {
+          if (!cell.v) continue;
+          const pageIdx = cell.page || 0;
+          if (pageIdx >= pdfDoc.getPageCount()) { missing.push(`p${pageIdx}`); continue; }
+          const page = pdfDoc.getPage(pageIdx);
+          const size = cell.size || 9;
+          const val = String(cell.v);
+          let x = cell.x;
+          if (cell.rx != null) {
+            const w = helv.widthOfTextAtSize(val, size);
+            x = cell.rx - w;
+          }
+          try { page.drawText(val, { x, y: cell.y, size, font: helv }); filled++; }
+          catch (e) { missing.push(`@(${x},${cell.y})`); }
+        }
+      } else {
+        // AcroForm path (Vancouver / West Van / DNV / Burnaby)
+        const form = pdfDoc.getForm();
+        const map = ahj.buildMap();
+        setExportStatus(`Filling ${ahj.name} (${Object.keys(map).length} fields)…`);
+        for (const [name, value] of Object.entries(map)) {
+          try {
+            const f = form.getTextField(name);
+            f.setText(String(value || ""));
+            try { f.setFontSize(0); } catch (e) {}
+            filled++;
+          } catch (e) { missing.push(name); }
+        }
+        try {
+          const acroFormDict = pdfDoc.catalog.get(PDFLib.PDFName.of('AcroForm'));
+          const acroForm = acroFormDict && acroFormDict.constructor && acroFormDict.constructor.name === 'PDFRef'
+            ? pdfDoc.context.lookup(acroFormDict) : acroFormDict;
+          if (acroForm && typeof acroForm.set === 'function') {
+            acroForm.set(PDFLib.PDFName.of('NeedAppearances'), PDFLib.PDFBool.True);
+          }
+        } catch (e) { console.warn('NeedAppearances set failed:', e.message); }
+        try { form.updateFieldAppearances(); } catch (e) {}
+      }
+
+      const bytes = await pdfDoc.save();
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const addr = ($("addr").value || "filled").replace(/[\\/:*?"<>|]+/g, "_").trim();
+      a.href = url; a.download = `${ahj.slug}_LoadCalc_${addr}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setExportStatus(`${ahj.name}: ${filled} fields filled. Downloaded.` + (missing.length ? ` (${missing.length} fields not in this PDF — likely a different revision.)` : ""));
+    } catch (err) {
+      console.error(err);
+      setExportStatus(`${ahj.name} fill failed: ${err.message}`, true);
+    }
+  }
+
+  // ===== West Vancouver field map =====
+  // 29 AcroForm text fields. Mapped visually from test fill.
+  function buildWestVanFieldMap() {
+    if (!LAST_CALC) calc();
+    const c = LAST_CALC;
+    const wStr = n => (n > 0) ? String(Math.round(n)) : "";
+    const u = c.units.find(x => x.id === "a") || {};
+    const suite = c.units.find(x => x.id === "b");
+
+    // Primary basic split
+    let pBasic_i = 0, pBasic_ii = 0;
+    if (u.area > 0) {
+      pBasic_i = 5000;
+      if (u.area > 90) pBasic_ii = Math.ceil((u.area - 90) / 90) * 1000;
+    }
+    // Suite basic split (3500+1500+1000)
+    let sBasic_first45 = 0, sBasic_second45 = 0, sBasic_addl = 0;
+    if (suite && suite.area > 0) {
+      sBasic_first45 = 3500;
+      if (suite.area > 45) sBasic_second45 = 1500;
+      if (suite.area > 90) sBasic_addl = Math.ceil((suite.area - 90) / 90) * 1000;
+    }
+
+    // Other loads itemized for vii (West Van wants the demand-applied value)
+    const otherU = u.otherDemand || 0;
+    const otherSuite = suite ? (suite.otherDemand || 0) : 0;
+
+    // Combined baseboard for the 100/75 split row
+    const bbConn = (u.bbConn || 0) + (suite ? suite.bbConn : 0);
+    const bbFirst10k = Math.min(bbConn, 10000);
+    const bbBalance75 = bbConn > 10000 ? (bbConn - 10000) * 0.75 : 0;
+    const heatTotal = bbFirst10k + bbBalance75 + (u.otherHeat || 0) + (suite ? suite.otherHeat : 0);
+
+    // Combined total
+    const primaryWatts = u.unitTotal || 0;
+    const suiteWatts = suite ? suite.unitTotal * 0.65 : 0;
+    const totalWatts = primaryWatts + suiteWatts;
+    const totalAmps = Math.round(totalWatts / (c.voltage || 240));
+
+    return {
+      // Header
+      "Text1": $("addr").value || "",
+      "Text2": $("permit-elec").value || "",
+      "Text3": [$("contractor").value, $("contractor-lic").value].filter(Boolean).join(" — "),
+      "Text4": $("permit-bldg").value || "",
+      // Service
+      "Text8": String(c.recSize || ""),     // Amps
+      "text 85": String(c.voltage || 240),  // Voltage
+      "Text81": "1Ø 3W",                    // Phase
+      // Primary dwelling
+      "Text5": wStr(u.area || 0),                       // m²
+      "Text11": wStr(pBasic_i),                          // 5000W
+      "Text6": wStr(pBasic_ii),                          // 1000W per 90m²
+      "Text12": wStr(u.range || 0),                      // range
+      "Text13": wStr(u.ac || 0),                         // AC
+      "Text14": wStr(u.tankless || 0),                   // tankless
+      "Text15": wStr(u.ev || 0),                         // EV
+      "Text16": wStr(otherU),                            // additional (vii demand)
+      // Secondary suite
+      "Text17": suite ? wStr(suite.area) : "",
+      "Text18": wStr(sBasic_first45),                    // 3500W
+      "Text19": wStr(sBasic_second45),                   // 1500W
+      "Text20": wStr(sBasic_addl),                       // 1000W per 90m²
+      "Text21": suite ? wStr(suite.range) : "",
+      "Text22": wStr(otherSuite),
+      // Combined
+      "Text23": wStr(primaryWatts),                      // Primary @ 100%
+      "Text24": wStr(suiteWatts),                        // Suite @ 65%
+      "Text25": wStr(heatTotal),                         // Electric space heating loads
+      "Text26": wStr(bbFirst10k),                        // First 10000W @ 100%
+      "Text27": wStr(bbBalance75),                       // Balance @ 75%
+      "Text28": wStr(heatTotal),                         // Heating subtotal
+      "Text29": wStr(totalWatts),                        // Total Watts
+      "Text30": String(totalAmps)                        // Total Amps (best guess)
+    };
+  }
+
+  // ===== DNV field map (partial — fields named descriptively) =====
+  function buildDNVFieldMap() {
+    if (!LAST_CALC) calc();
+    const c = LAST_CALC;
+    const wStr = n => (n > 0) ? String(Math.round(n)) : "";
+    const get = id => c.units.find(x => x.id === id);
+    const A = get("a"), B = get("b"), C = get("c");
+
+    function unitBasic(u, isPrincipal) {
+      if (!u || !u.area) return { basicI:0, basicII:0, basicIII:0 };
+      if (isPrincipal) {
+        return { basicI: 5000, basicII: (u.area > 90) ? Math.ceil((u.area-90)/90)*1000 : 0, basicIII: 0 };
+      }
+      return {
+        basicI: 3500,
+        basicII: u.area > 45 ? 1500 : 0,
+        basicIII: u.area > 90 ? Math.ceil((u.area-90)/90)*1000 : 0
+      };
+    }
+    const ab = unitBasic(A, true);
+    const bb_ = unitBasic(B, false);
+    const cb = unitBasic(C, false);
+
+    // Section 4 cascade
+    const sorted = [...c.units].sort((a,b)=> b.carryable - a.carryable);
+    const heaviest = (sorted[0]?.carryable || 0);
+    const next1 = (sorted[1]?.carryable || 0) * 0.65;
+    const coach = (sorted[2]?.carryable || 0) * 0.65;
+    const bbAll = c.units.reduce((s,u)=>s+u.bbConn,0);
+    const bbDemand = bbAll <= 10000 ? bbAll : 10000 + (bbAll-10000)*0.75;
+    const bbBalance = bbAll > 10000 ? (bbAll-10000)*0.75 : 0;
+    const acHpEvAll = c.units.reduce((s,u)=>s+u.ac+u.hp+u.ev,0);
+
+    return {
+      // Header / permit
+      "Permit details Address:": $("addr").value || "",
+      "Permit details Electrical Permit Number:": $("permit-elec").value || "",
+      "permit details Building Permit Number:": $("permit-bldg").value || "",
+      "permit details Electrical Contractor:": [$("contractor").value, $("contractor-lic").value].filter(Boolean).join(" — "),
+      // Service
+      "service details Volts:": $("svc-ex-v").value || "",
+      "service details Amps:": $("svc-ex-a").value || "",
+      "upgrading service charac If yes": $("svc-upgrading").value === "yes" ? "Yes" : "",
+      "new service Volts": $("svc-new-v").value || "",
+      "new service Amps": $("svc-new-a").value || "",
+      // Dwelling 1 (Principal — Section 1)
+      "Text1": A ? wStr(A.area) : "",
+      "Text2": wStr(ab.basicI),
+      "Text3": wStr(ab.basicII),
+      "Text4": wStr((A?.heatTotal || 0)),     // electric space heating (with 100/75 applied)
+      "Text5": wStr(A?.range || 0),
+      "Text6": wStr((A?.ac || 0) + (A?.hp || 0)),
+      "Text7": wStr(A?.tankless || 0),
+      "Text8": wStr(A?.ev || 0),
+      "Text9": wStr(A?.otherDemand || 0),
+      "text10": wStr(A?.unitTotal || 0),       // with heat/AC/EV
+      "Text11": wStr(A ? (A.unitTotal - A.carried - A.ev) : 0), // without heat/AC/EV
+      // Dwelling 2 (Suite — Section 2)
+      "dwelling 2 Text1": B ? wStr(B.area) : "",
+      "dwelling 2 Text2": wStr(bb_.basicI),
+      "Dwelling 2 Text3": wStr(bb_.basicII),
+      "Dwelling 2 Text4": wStr(bb_.basicIII),
+      "dewlling 2Tex5": wStr(B?.heatTotal || 0),
+      "dwelling 2 Text6": wStr(B?.range || 0),
+      "Dwelling 2  text7": wStr((B?.ac || 0) + (B?.hp || 0)),
+      "dwelling 2 Text8": wStr(B?.otherDemand || 0),
+      "dwelling 2 Text9": wStr(B?.unitTotal || 0),
+      "dwelling 2 Text10": wStr(B ? (B.unitTotal - B.carried - B.ev) : 0),
+      // Dwelling 3 (Coach house — Section 3)
+      "Dwelling 3 (Coach house) 1": C ? wStr(C.area) : "",
+      "Dwelling 3 (Coach house) Text2": wStr(cb.basicI),
+      "Dwelling 3 (Coach house) Text3": wStr(cb.basicII),
+      "Dwelling 3 (Coach house) Text4": wStr(cb.basicIII),
+      "Dwelling 3 (Coach house) Text5": wStr(C?.heatTotal || 0),
+      "Dwelling 3 (Coach house) Text6": wStr(C?.range || 0),
+      "Dwelling 3 (Coach house) Text7": wStr((C?.ac || 0) + (C?.hp || 0)),
+      "Dwelling 3 (Coach house) Text8": wStr(C?.otherDemand || 0),
+      "Dwelling 3 (Coach house) Text9": wStr(C?.unitTotal || 0),
+      "Dwelling 3 (Coach house) Text10": wStr(C ? (C.unitTotal - C.carried - C.ev) : 0),
+      // Section 4 (Combined)
+      "Section 4 Text1": wStr(heaviest),
+      "Section 4 Text2": wStr(next1),
+      "Section 4  Text3": wStr(coach),
+      "Section 4 Text4": wStr(bbDemand),
+      "Section 4 Text5": wStr(bbBalance),
+      "Section 4 Text6": wStr(acHpEvAll),
+      "Section 4 Text7": wStr(c.consumerTotal || 0),
+      "TOTAL AMPS 8": String(Math.round(c.consumerAmps || 0))
+    };
+  }
+
+  // ===== Burnaby R1 field map =====
+  // 108 text fields, descriptively named per column (A/B/C/D Principal Dwellings + E Secondary Suite).
+  // My 3-unit model maps: Principal→A, Laneway→B (2nd principal), Suite→E.
+  function buildBurnabyFieldMap() {
+    if (!LAST_CALC) calc();
+    const c = LAST_CALC;
+    const wStr = n => (n > 0) ? String(Math.round(n)) : "";
+    const get = id => c.units.find(x => x.id === id);
+    const PA = get("a");  // My Principal → Burnaby A
+    const PB = get("c");  // My Laneway   → Burnaby B (treated as 2nd principal)
+    const SE = get("b");  // My Suite     → Burnaby E
+
+    function colData(unit, isPrincipal) {
+      if (!unit || !unit.area) return { area:"", basicI:"", basicII:"", bb:"", otherHeat:"", ac:"", hp:"", range:"", tankless:"", ev:"", dryer:"", hwt:"", other:"", tcl:"", breakerAmps:"", conductor:"" };
+      const area = unit.area;
+      let basicI = 0, basicII = 0;
+      if (isPrincipal) {
+        basicI = 5000;
+        if (area > 90) basicII = Math.ceil((area-90)/90)*1000;
+      } else {
+        basicI = 3500 + (area > 45 ? 1500 : 0);
+        basicII = (area > 90) ? Math.ceil((area-90)/90)*1000 : 0;
+      }
+      const sizes = [60,100,125,150,200,225,300,320,400];
+      const minA = (area >= 80) ? 100 : 60;
+      const reqA = Math.max(unit.unitTotal / (c.voltage || 240), minA);
+      const breakerA = sizes.find(s => s >= reqA) || 400;
+      // Itemized vii loads
+      const id = unit.id;
+      let dryer = 0, hwt = 0, other = 0;
+      if (id === "a") {
+        dryer = num("a-ol-dryer"); hwt = num("a-ol-hwt");
+        other = num("a-ol-dish") + num("a-ol-hottub") + num("a-ol-pool") + num("a-ol-sauna")
+              + num("a-ol-c1-w") + num("a-ol-c2-w") + num("a-ol-c3-w");
+      } else {
+        dryer = num(id+"-ol-dryer"); hwt = num(id+"-ol-hwt"); other = num(id+"-ol-other");
+      }
+      return {
+        area: wStr(area), basicI: wStr(basicI), basicII: wStr(basicII),
+        bb: wStr(unit.bbConn), otherHeat: wStr(unit.otherHeat),
+        ac: wStr(unit.ac), hp: wStr(unit.hp),
+        range: wStr(unit.range), tankless: wStr(unit.tankless), ev: wStr(unit.ev),
+        dryer: wStr(dryer), hwt: wStr(hwt), other: wStr(other),
+        tcl: wStr(unit.unitTotal),
+        breakerAmps: unit.area ? String(breakerA) : "",
+        conductor: unit.area ? conductorFor(breakerA) : ""
+      };
+    }
+
+    const A = colData(PA, true), B = colData(PB, true), E = colData(SE, false);
+    const Cz = colData(null, true), Dz = colData(null, true); // C and D unused
+
+    // Cascade
+    const sorted = [...c.units].sort((a,b)=> b.carryable - a.carryable);
+    const heaviest = (sorted[0]?.carryable || 0);
+    const next1 = (sorted[1]?.carryable || 0) * 0.65;
+    const next2 = (sorted[2]?.carryable || 0) * 0.65;
+    const next3 = (sorted[3]?.carryable || 0) * 0.40;
+    const bbAll = c.units.reduce((s,u)=>s+u.bbConn,0);
+    const bbFirst = Math.min(bbAll, 10000);
+    const bbBalance = bbAll > 10000 ? (bbAll-10000)*0.75 : 0;
+    const otherHeatAll = c.units.reduce((s,u)=>s+u.otherHeat,0);
+    const acAll = c.units.reduce((s,u)=>s+u.ac,0);
+    const hpAll = c.units.reduce((s,u)=>s+u.hp,0);
+    const evAll = c.units.reduce((s,u)=>s+u.ev,0);
+
+    return {
+      "Project Address": $("addr").value || "",
+
+      // Column A — Principal (my A)
+      "Total Livable Area -PD-A": A.area,
+      "Basic Load -PD-A": A.basicI, "Basic LoadB -PD-A": A.basicII,
+      "Baseboard Heaters A": A.bb, "Other A": A.otherHeat,
+      "AC A": A.ac, "HP A": A.hp,
+      "Range A": A.range, "WH A": A.tankless, "EVSE A": A.ev,
+      "Dryer A": A.dryer, "HWT A": A.hwt, "Other oA": A.other,
+      "TCL A": A.tcl, "Total A": A.breakerAmps, "Cable Size A": A.conductor,
+
+      // Column B — Laneway (my C) as 2nd Principal Dwelling
+      "Total Livable Area -PD-B": B.area,
+      "Basic Load -PD-B": B.basicI, "Basic LoadB -PD-B": B.basicII,
+      "Baseboard Heaters B": B.bb, "Other B": B.otherHeat,
+      "AC B": B.ac, "HP B": B.hp,
+      "Range B": B.range, "WH B": B.tankless, "EVSE B": B.ev,
+      "Dryer B": B.dryer, "HWT B": B.hwt, "Other oB": B.other,
+      "TCL B": B.tcl, "Total B": B.breakerAmps, "Cable Size B": B.conductor,
+
+      // Columns C and D — unused
+      "Prinicpal Dwelling-C": Cz.area, "Basic Load -PD-C": Cz.basicI, "Basic LoadB -PD-C": Cz.basicII,
+      "Baseboard Heaters C": Cz.bb, "Other C": Cz.otherHeat,
+      "AC C": Cz.ac, "HP C": Cz.hp, "Range C": Cz.range, "WH C": Cz.tankless, "EVSE C": Cz.ev,
+      "Dryer C": Cz.dryer, "HWT C": Cz.hwt, "Other oC": Cz.other,
+      "TCL C": Cz.tcl, "Total C": Cz.breakerAmps, "Cable Size C": Cz.conductor,
+      "Prinicpal Dwelling-D": Dz.area, "Basic Load -PD-D": Dz.basicI, "Basic LoadB -PD-D": Dz.basicII,
+      "Baseboard Heaters D": Dz.bb, "Other D": Dz.otherHeat,
+      "AC D": Dz.ac, "HP D": Dz.hp, "Range  D": Dz.range, "WH D": Dz.tankless, "EVSE D": Dz.ev,
+      "Dryer D": Dz.dryer, "HWT D": Dz.hwt, "Other oD": Dz.other,
+      "TCL D": Dz.tcl, "Total D": Dz.breakerAmps, "Cable Size D": Dz.conductor,
+
+      // Column E — Secondary Suite (my B). Note: several field names have double spaces.
+      "Secondary Suites-E": E.area,
+      "Basic Load -SS E": E.basicI, "Basic LoadB -SS E": E.basicII,
+      "Baseboard Heaters E": E.bb, "Other E": E.otherHeat,
+      "AC  E": E.ac, "HP  E": E.hp,
+      "Range E": E.range, "WH  E": E.tankless, "EVSE E": E.ev,
+      "Dryer E": E.dryer, "HWT E": E.hwt, "Other oE": E.other,
+      "TCL E": E.tcl, "Total E": E.breakerAmps, "Cable Size E": E.conductor,
+
+      // Unmetered suite added to A-D (left blank — user fills if they want)
+      "SS A": "", "SS B": "", "SS C": "", "SS D": "",
+
+      // Cascade — 8-202(3)
+      "100%": wStr(heaviest),
+      "65%": wStr(next1),
+      "65-b%": wStr(next2),
+      "40%": wStr(next3),
+      "Baseboard": wStr(bbFirst),
+      "75% Over": wStr(bbBalance),
+      "Ele Space-heating Loads": wStr(otherHeatAll),
+      "AC Loads": wStr(acAll),
+      "Heat Pump Motor Loads": wStr(hpAll),
+      "EV Supply Equiptment": wStr(evAll),
+      "Main Consumer Other": "",
+      "EVEM Dedcutions": "",
+
+      // Footer
+      "Total Watts": wStr(c.consumerTotal || 0),
+      "Total Amps": String(Math.round(c.consumerAmps || 0)),
+      "Voltage": String(c.voltage || 240),
+      "Phase": "1Ø 3W",
+      "# of ELE M": $("svc-meters").value || "1",
+      "Conductor": $("svc-cond").value || (c.recSize ? conductorFor(c.recSize) : ""),
+
+      // Contractor info
+      "Electrical Contractor Name and License Number": [$("contractor").value, $("contractor-lic").value].filter(Boolean).join(" — "),
+      "FSR Name and Registration Number": [$("fsr-name").value, $("fsr-reg").value].filter(Boolean).join(" — "),
+      "Email Address": $("contractor-email").value || "",
+      "Phone Number": $("contractor-phone").value || "",
+      "Date18_af_date": $("date").value || ""
+    };
+  }
+
+  // ===== CNV — coordinate overlay (flat PDF, no AcroForm) =====
+  // CNV publishes two layouts: Single Family + Suite (1 page) and Townhouse / Row Houses (2 pages).
+  // The PDF coordinate system has origin bottom-left. Cells right-align to ~x=540 (the column where 'W'/'m²' labels sit).
+  function buildCnvSfCoords() {
+    if (!LAST_CALC) calc();
+    const c = LAST_CALC;
+    const A = c.units.find(u => u.id === "a") || {};
+    const B = c.units.find(u => u.id === "b");
+    const w = n => (n > 0) ? String(Math.round(n)) : "";
+    let pBasicI = 0, pBasicII = 0;
+    if (A.area > 0) { pBasicI = 5000; if (A.area > 90) pBasicII = Math.ceil((A.area-90)/90)*1000; }
+    let sFirst45 = 0, sSecond45 = 0, sAddl90 = 0;
+    if (B && B.area > 0) {
+      sFirst45 = 3500;
+      if (B.area > 45) sSecond45 = 1500;
+      if (B.area > 90) sAddl90 = Math.ceil((B.area-90)/90)*1000;
+    }
+    const pSubtotal = A.unitTotal || 0;
+    const sSubtotal = B ? (B.unitTotal || 0) : 0;
+    const bbAll = (A.bbConn || 0) + (B ? B.bbConn : 0);
+    const heat10k = Math.min(bbAll, 10000);
+    const heat75 = bbAll > 10000 ? (bbAll - 10000) * 0.75 : 0;
+    const heatSubtotal = heat10k + heat75 + (A.otherHeat || 0) + (B ? B.otherHeat : 0);
+    const primary100 = pSubtotal;
+    const suite65 = sSubtotal * 0.65;
+    const totalWatts = primary100 + suite65 + heatSubtotal;
+
+    return [
+      // Header (left-aligned, shifted right to clear "Project Address:" / "Electrical Contractor:" labels)
+      { page:0, x:160, y:612, v: $("addr").value || "", size:8 },
+      { page:0, x:395, y:612, v: $("permit-elec").value || "", size:9 },
+      { page:0, x:180, y:595, v: ($("contractor").value || "").slice(0,28), size:8 },
+      { page:0, x:395, y:595, v: $("permit-bldg").value || "", size:9 },
+      // Service
+      { page:0, x:328, y:543, v: $("svc-new-a").value || $("svc-ex-a").value || "", size:9 },
+      { page:0, x:430, y:543, v: $("svc-new-v").value || $("svc-ex-v").value || "240", size:9 },
+      { page:0, x:508, y:543, v: $("svc-new-ph").value || $("svc-ex-ph").value || "", size:9 },
+      // Meters (row 1)
+      { page:0, x:340, y:516, v: $("svc-meters").value || "1", size:9 },
+      { page:0, x:430, y:516, v: $("svc-new-a").value || $("svc-ex-a").value || "", size:9 },
+      // Primary dwelling — right-aligned at x=540
+      { page:0, rx:540, y:476, v: w(A.area || 0), size:9 },
+      { page:0, rx:540, y:460, v: w(pBasicI), size:9 },
+      { page:0, rx:540, y:446, v: w(pBasicII), size:9 },
+      { page:0, rx:540, y:433, v: w(A.range || 0), size:9 },
+      { page:0, rx:540, y:419, v: w((A.ac||0)+(A.hp||0)), size:9 },
+      { page:0, rx:540, y:405, v: w(A.tankless || 0), size:9 },
+      { page:0, rx:540, y:392, v: w(A.ev || 0), size:9 },
+      { page:0, rx:540, y:378, v: w(A.otherDemand || 0), size:9 },
+      { page:0, rx:540, y:357, v: w(pSubtotal), size:9 },
+      // Secondary suite
+      { page:0, rx:540, y:332, v: B ? w(B.area) : "", size:9 },
+      { page:0, rx:540, y:316, v: w(sFirst45), size:9 },
+      { page:0, rx:540, y:303, v: w(sSecond45), size:9 },
+      { page:0, rx:540, y:289, v: w(sAddl90), size:9 },
+      { page:0, rx:540, y:275, v: B ? w(B.range) : "", size:9 },
+      { page:0, rx:540, y:262, v: B ? w(B.otherDemand) : "", size:9 },
+      { page:0, rx:540, y:241, v: w(sSubtotal), size:9 },
+      // Combined
+      { page:0, rx:540, y:214, v: w(primary100), size:9 },
+      { page:0, rx:540, y:200, v: w(suite65), size:9 },
+      { page:0, rx:540, y:186, v: w(bbAll + (A.otherHeat||0) + (B ? B.otherHeat : 0)), size:9 },
+      { page:0, rx:540, y:173, v: w(heat10k), size:9 },
+      { page:0, rx:540, y:159, v: w(heat75), size:9 },
+      { page:0, rx:540, y:139, v: w(heatSubtotal), size:9 },
+      // Total
+      { page:0, rx:540, y:111, v: w(totalWatts), size:9 },
+    ];
+  }
+
+  function buildCnvThCoords() {
+    if (!LAST_CALC) calc();
+    const c = LAST_CALC;
+    const w = n => (n > 0) ? String(Math.round(n)) : "";
+    // Sort units by total — Largest / Second-Largest / Third-Largest
+    const sorted = [...c.units].sort((a,b) => b.unitTotal - a.unitTotal);
+
+    // Per-unit basic load split (8-200(2) multi-dwelling)
+    function unitBasics(u) {
+      if (!u || !u.area) return { f45:0, s45:0, addl:0 };
+      return {
+        f45: 3500,
+        s45: u.area > 45 ? 1500 : 0,
+        addl: u.area > 90 ? Math.ceil((u.area-90)/90)*1000 : 0
+      };
+    }
+
+    function unitCells(u, yM2) {
+      const b = unitBasics(u);
+      const has = u && u.area > 0;
+      return [
+        // 8 cells per unit: m², 3500W, 1500W, 1000W/90m², range, AC, vii, subtotal
+        { page:0, rx:540, y: yM2,     v: has ? w(u.area) : "", size:9 },
+        { page:0, rx:540, y: yM2-13,  v: has ? w(b.f45) : "", size:9 },
+        { page:0, rx:540, y: yM2-28,  v: has ? w(b.s45) : "", size:9 },
+        { page:0, rx:540, y: yM2-42,  v: has ? w(b.addl) : "", size:9 },
+        { page:0, rx:540, y: yM2-55,  v: has ? w(u.range || 0) : "", size:9 },
+        { page:0, rx:540, y: yM2-69,  v: has ? w((u.ac||0)+(u.hp||0)) : "", size:9 },
+        { page:0, rx:540, y: yM2-83,  v: has ? w(u.otherDemand || 0) : "", size:9 },
+        { page:0, rx:540, y: yM2-108, v: has ? w(u.unitTotal || 0) : "", size:9 }
+      ];
+    }
+
+    // Page 1 — three unit blocks at y=470 / y=326 / y=183 (m² rows)
+    const u1 = sorted[0], u2 = sorted[1], u3 = sorted[2];
+    const cells1 = [
+      // Header (shifted right to clear printed labels)
+      { page:0, x:160, y:615, v: $("addr").value || "", size:8 },
+      { page:0, x:395, y:615, v: $("permit-elec").value || "", size:9 },
+      { page:0, x:180, y:598, v: ($("contractor").value || "").slice(0,28), size:8 },
+      { page:0, x:395, y:598, v: $("permit-bldg").value || "", size:9 },
+      // Service
+      { page:0, x:328, y:547, v: $("svc-new-a").value || $("svc-ex-a").value || "", size:9 },
+      { page:0, x:430, y:547, v: $("svc-new-v").value || $("svc-ex-v").value || "240", size:9 },
+      { page:0, x:508, y:547, v: $("svc-new-ph").value || $("svc-ex-ph").value || "", size:9 },
+      // Meters row 1
+      { page:0, x:340, y:519, v: $("svc-meters").value || "1", size:9 },
+      { page:0, x:430, y:519, v: $("svc-new-a").value || $("svc-ex-a").value || "", size:9 },
+      // Units
+      ...unitCells(u1, 470),
+      ...unitCells(u2, 326),
+      ...unitCells(u3, 183),
+    ];
+
+    // Page 2 — Service Conductors cascade + House Loads + Heating + Total
+    // 8-202(3): 100% heaviest, 65% next 2, 40% next 2, 25% next 15, 10% remaining
+    const subtotals = sorted.map(u => u.unitTotal || 0);
+    const sumRange = (start, end) => subtotals.slice(start, end).reduce((s,v) => s + v, 0);
+    const cascade100 = subtotals[0] || 0;
+    const cascade65 = sumRange(1, 3) * 0.65;
+    const cascade40 = sumRange(3, 5) * 0.40;
+    const cascade25 = sumRange(5, 20) * 0.25;
+    const cascade10 = sumRange(20, subtotals.length) * 0.10;
+    const cascadeSubtotal = cascade100 + cascade65 + cascade40 + cascade25 + cascade10;
+
+    const bbAll = c.units.reduce((s,u) => s + (u.bbConn || 0), 0);
+    const heat10k = Math.min(bbAll, 10000);
+    const heat75 = bbAll > 10000 ? (bbAll - 10000) * 0.75 : 0;
+    const otherHeatAll = c.units.reduce((s,u) => s + (u.otherHeat || 0), 0);
+    const heatSubtotal = heat10k + heat75 + otherHeatAll;
+    const totalWatts = cascadeSubtotal + heatSubtotal;  // house loads added by user
+
+    const cells2 = [
+      // Header (repeated on page 2, shifted right)
+      { page:1, x:160, y:615, v: $("addr").value || "", size:8 },
+      { page:1, x:395, y:615, v: $("permit-elec").value || "", size:9 },
+      { page:1, x:180, y:598, v: ($("contractor").value || "").slice(0,28), size:8 },
+      { page:1, x:395, y:598, v: $("permit-bldg").value || "", size:9 },
+      // Cascade
+      { page:1, rx:540, y:524, v: w(cascade100), size:9 },
+      { page:1, rx:540, y:500, v: w(cascade65), size:9 },
+      { page:1, rx:540, y:477, v: w(cascade40), size:9 },
+      { page:1, rx:540, y:454, v: w(cascade25), size:9 },
+      { page:1, rx:540, y:440, v: w(cascade10), size:9 },
+      { page:1, rx:540, y:419, v: w(cascadeSubtotal), size:9 },
+      // House loads — left blank, user fills if applicable
+      // Heating
+      { page:1, rx:540, y:276, v: w(bbAll + otherHeatAll), size:9 },
+      { page:1, rx:540, y:262, v: w(heat10k), size:9 },
+      { page:1, rx:540, y:248, v: w(heat75), size:9 },
+      { page:1, rx:540, y:228, v: w(heatSubtotal), size:9 },
+      // Total
+      { page:1, rx:540, y:200, v: w(totalWatts), size:9 },
+    ];
+
+    return [...cells1, ...cells2];
+  }
+
+  // ===== City of Surrey SF + Suite field map =====
+  // 75 AcroForm text fields, 3 columns: 1=Main Principal, 2=Secondary Suite, 3=CH/GS.
+  // Mapping verified end-to-end against test fill.
+  function buildSurreySfFieldMap() {
+    if (!LAST_CALC) calc();
+    const c = LAST_CALC;
+    const wStr = n => (n > 0) ? String(Math.round(n)) : "";
+    const A = c.units.find(u => u.id === "a") || {};
+    const B = c.units.find(u => u.id === "b");
+    const C = c.units.find(u => u.id === "c");
+
+    // Basic load splits per Surrey form layout (Principal uses 8-200(1), Suite/CH use 8-200(2))
+    function basicI(u, isPrincipal) {
+      if (!u || !u.area) return 0;
+      if (isPrincipal) return 5000;
+      return u.area > 45 ? 5000 : 3500;
+    }
+    function basicII(u) {
+      if (!u || !u.area || u.area <= 90) return 0;
+      return Math.ceil((u.area - 90) / 90) * 1000;
+    }
+
+    // Cascade values
+    const sorted = [...c.units].sort((a,b) => b.carryable - a.carryable);
+    const heaviest = (sorted[0]?.carryable || 0);
+    const next1 = (sorted[1]?.carryable || 0) * 0.65;
+    const next2 = (sorted[2]?.carryable || 0) * 0.65;
+    const bbAll = c.units.reduce((s,u) => s + (u.bbConn || 0), 0);
+    const bbFirst = Math.min(bbAll, 10000);
+    const bbBalance = bbAll > 10000 ? (bbAll - 10000) * 0.75 : 0;
+    const bbDemandAll = bbFirst + bbBalance;
+    const otherHeatAll = c.units.reduce((s,u) => s + (u.otherHeat || 0), 0);
+    const acAll = c.units.reduce((s,u) => s + (u.ac || 0), 0);
+    const hpAll = c.units.reduce((s,u) => s + (u.hp || 0), 0);
+    const heatAll = bbDemandAll + otherHeatAll;
+    const coolAll = acAll + hpAll;
+    const carriedAll = c.interlock ? Math.max(heatAll, coolAll) : (heatAll + coolAll);
+    const evAll = c.units.reduce((s,u) => s + (u.ev || 0), 0);
+
+    // Per-unit itemized vii
+    function olDryer(id) { return id === "a" ? num("a-ol-dryer") : num(id+"-ol-dryer"); }
+    function olHwt(id)   { return id === "a" ? num("a-ol-hwt")   : num(id+"-ol-hwt"); }
+    function olOther(id) {
+      if (id === "a") return num("a-ol-dish") + num("a-ol-hottub") + num("a-ol-pool") + num("a-ol-sauna") + num("a-ol-c1-w") + num("a-ol-c2-w") + num("a-ol-c3-w");
+      return num(id+"-ol-other");
+    }
+
+    // Per-unit breaker amps + conductor
+    const sizes = [60,100,125,150,200,225,300,320,400];
+    function unitBreaker(u) {
+      if (!u || !u.area) return { amps:"", conductor:"" };
+      const minA = (u.area >= 80) ? 100 : 60;
+      const reqA = Math.max(u.unitTotal / c.voltage, minA);
+      const breakerA = sizes.find(s => s >= reqA) || 400;
+      return { amps: String(breakerA), conductor: conductorFor(breakerA) };
+    }
+    const bA = unitBreaker(A), bB = unitBreaker(B), bC = unitBreaker(C);
+
+    return {
+      // Header
+      "Permit No": $("permit-elec").value || "",
+      "Address": $("addr").value || "",
+      "Date2_af_date": $("date").value || "",
+
+      // Column 1 — Main Principal (my Unit A, 8-200(1))
+      "1 Main Principal m²": A.area ? wStr(A.area) : "",
+      "m²_i) A basic load of 5000 W for the first 90 m² or less of living area_1": wStr(basicI(A, true)),
+      "m²ii 1000 W for each 90 m² or portion thereof_1": wStr(basicII(A)),
+      "Baseboard Heaters_1": wStr(A.bbConn),
+      "AC_1": wStr(A.ac),
+      "Heat Pump_1": wStr(A.hp),
+      "Other_1": wStr(A.otherHeat),
+      "iv Any electric range load 6000 W for a single range plus 40 of any amount by which the rating of the range exceeds 12 kW_1": wStr(A.range),
+      "v Any electric tankless water heaters or electric water heaters for steamers swimming pools hot tubs or spas with a demand factor of 100_1": wStr(A.tankless),
+      "100 EVSE_1": wStr(A.ev),
+      "Deduct EVSE loads": "",
+      "Dryer": wStr(olDryer("a")),
+      "HWT": wStr(olHwt("a")),
+      "Other_4": wStr(olOther("a")),
+      "W1": wStr(A.unitTotal),
+      "A1": bA.amps,
+      "AType  size of servicefeeder AWG  kcmil Cu  Al_1": bA.conductor,
+
+      // Column 2 — Secondary Suite (my Unit B, 8-200(2))
+      "2 Secondary Suite m²": B ? wStr(B.area) : "",
+      "m²_i) A basic load of 5000 W for the first 90 m² or less of living area_2": wStr(basicI(B, false)),
+      "m²ii 1000 W for each 90 m² or portion thereof_2": wStr(basicII(B)),
+      "Baseboard Heaters_2": B ? wStr(B.bbConn) : "",
+      "AC_2": B ? wStr(B.ac) : "",
+      "Heat Pump_2": B ? wStr(B.hp) : "",
+      "Other_2": B ? wStr(B.otherHeat) : "",
+      "iv Any electric range load 6000 W for a single range plus 40 of any amount by which the rating of the range exceeds 12 kW_2": B ? wStr(B.range) : "",
+      "v Any electric tankless water heaters or electric water heaters for steamers swimming pools hot tubs or spas with a demand factor of 100_2": B ? wStr(B.tankless) : "",
+      "100 EVSE_2": B ? wStr(B.ev) : "",
+      "Deduct EVSE loads_2": "",
+      "Dryer_2": B ? wStr(olDryer("b")) : "",
+      "HWT_2": B ? wStr(olHwt("b")) : "",
+      "Other_5": B ? wStr(olOther("b")) : "",
+      "W2": B ? wStr(B.unitTotal) : "",
+      "A2": bB.amps,
+      "AType  size of servicefeeder AWG  kcmil Cu  Al_2": bB.conductor,
+
+      // Column 3 — CH/GS (my Unit C, 8-200(2))
+      "3 CH/GS m²": C ? wStr(C.area) : "",
+      "m²_i) A basic load of 5000 W for the first 90 m² or less of living area_3": wStr(basicI(C, false)),
+      "m²ii 1000 W for each 90 m² or portion thereof_3": wStr(basicII(C)),
+      "Baseboard Heaters_3": C ? wStr(C.bbConn) : "",
+      "AC_3": C ? wStr(C.ac) : "",
+      "Heat Pump_3": C ? wStr(C.hp) : "",
+      "Other_3": C ? wStr(C.otherHeat) : "",
+      "iv Any electric range load 6000 W for a single range plus 40 of any amount by which the rating of the range exceeds 12 kW_3": C ? wStr(C.range) : "",
+      "v Any electric tankless water heaters or electric water heaters for steamers swimming pools hot tubs or spas with a demand factor of 100_3": C ? wStr(C.tankless) : "",
+      "100 EVSE_3": C ? wStr(C.ev) : "",
+      "Deduct EVSE loads_3": "",
+      "Dryer_3": C ? wStr(olDryer("c")) : "",
+      "HWT_3": C ? wStr(olHwt("c")) : "",
+      "Other_6": C ? wStr(olOther("c")) : "",
+      "W3": C ? wStr(C.unitTotal) : "",
+      "A3": bC.amps,
+      "AType  size of servicefeeder AWG  kcmil Cu  Al_3": bC.conductor,
+
+      // Cascade (8-202(3))
+      "100 of the unit having the heaviest load Rule 8202 3 a i excluding any EVSE loads electric spaceheating loads airconditioning loads unit 1  2": wStr(heaviest),
+      "65 of the unit having the same or next smaller load Rule 8202 3 a ii excluding any EVSE loads electric spaceheating loads airconditioning loads unit 1  2": wStr(next1),
+      "65 of the unit having the same or next smaller load Rule 8202 3 a ii excluding any EVSE loads electric spaceheating loads airconditioning loads unit 2  3": wStr(next2),
+      "Baseboard heating load,100% of the ﬁrst 10 kW, 75% for any amount over 10 kW: Rule 8-202 3) b), Subject to Rule 8-106 3);": wStr(bbDemandAll),
+      "Electric spaceheating loads Rule 8202 3 b Subject to Rule 8106 3": wStr(otherHeatAll),
+      "Airconditioning loads Rule 8202 3 c iii Subject to Rule 8106 3": wStr(acAll),
+      "Heat Pump Motor Loads Rule 8202 3 c iii Subject to Rule 8106 3": wStr(hpAll),
+      "Where interlocks are installed determine the larger ac  heating load from above Rule 8106 3 larger load to be considered in the determination of the calculated load": wStr(carriedAll),
+      "100 of EVSE loads supplied from units panel As per Rule 8202 1 a vii": wStr(evAll),
+
+      // Footer
+      "W4": c.consumerTotal ? wStr(c.consumerTotal) : "",
+      "W5": c.consumerTotal ? wStr(c.consumerTotal) : "",
+      "A4": c.consumerAmps ? String(Math.round(c.consumerAmps)) : "",
+      "Service Ampacity": c.recSize ? String(c.recSize) : "",
+      "Volts": String(c.voltage || 240),
+      "AType  size of conductors AWGkcmil cuAl": $("svc-cond").value || (c.recSize ? conductorFor(c.recSize) : ""),
+      "Number of BC Hydro meters": $("svc-meters").value || "1",
+      "Electrical Contractor Name  License Number": [$("contractor").value, $("contractor-lic").value].filter(Boolean).join(" — "),
+      "Email": $("contractor-email").value || "",
+      "Phone Number": $("contractor-phone").value || "",
+      "FSR Name  Registration Number": [$("fsr-name").value, $("fsr-reg").value].filter(Boolean).join(" — "),
+      "Phone Number_2": $("contractor-phone").value || ""
+    };
+  }
+
+  // ===== Maple Ridge field map =====
+  // 112 AcroForm text fields, 5 columns (4 Principal Dwellings A-D + 1 Secondary Suite E).
+  // Per-column: m², basic i, basic ii, baseboard, other heat, AC/HP combined, range, tankless, EVSE, dryer, HWT, other vii, total, breaker, cable.
+  // My 3-unit model maps: Principal → A (no suffix), Laneway → B (_2), Suite → E (_5).
+  function buildMapleRidgeFieldMap() {
+    if (!LAST_CALC) calc();
+    const c = LAST_CALC;
+    const wStr = n => (n > 0) ? String(Math.round(n)) : "";
+    const A = c.units.find(u => u.id === "a") || {};
+    const B = c.units.find(u => u.id === "c");  // My Laneway → Maple Ridge B
+    const E = c.units.find(u => u.id === "b");  // My Suite → Maple Ridge E
+
+    function basicI(u, isPrincipal) {
+      if (!u || !u.area) return 0;
+      if (isPrincipal) return 5000;
+      return u.area > 45 ? 5000 : 3500;
+    }
+    function basicII(u) {
+      if (!u || !u.area || u.area <= 90) return 0;
+      return Math.ceil((u.area - 90) / 90) * 1000;
+    }
+    function olDryer(id) { return id === "a" ? num("a-ol-dryer") : num(id+"-ol-dryer"); }
+    function olHwt(id)   { return id === "a" ? num("a-ol-hwt")   : num(id+"-ol-hwt"); }
+    function olOther(id) {
+      if (id === "a") return num("a-ol-dish") + num("a-ol-hottub") + num("a-ol-pool") + num("a-ol-sauna") + num("a-ol-c1-w") + num("a-ol-c2-w") + num("a-ol-c3-w");
+      return num(id+"-ol-other");
+    }
+    const sizes = [60,100,125,150,200,225,300,320,400];
+    function unitBreaker(u) {
+      if (!u || !u.area) return { amps:"", conductor:"" };
+      const minA = (u.area >= 80) ? 100 : 60;
+      const reqA = Math.max(u.unitTotal / c.voltage, minA);
+      const breakerA = sizes.find(s => s >= reqA) || 400;
+      return { amps: String(breakerA), conductor: conductorFor(breakerA) };
+    }
+    const bA = unitBreaker(A), bB = unitBreaker(B), bE = unitBreaker(E);
+
+    // Cascade
+    const sorted = [...c.units].sort((a,b) => b.carryable - a.carryable);
+    const heaviest = (sorted[0]?.carryable || 0);
+    const next1 = (sorted[1]?.carryable || 0) * 0.65;
+    const next2 = (sorted[2]?.carryable || 0) * 0.65;
+    const next3 = (sorted[3]?.carryable || 0) * 0.40;
+    const bbAll = c.units.reduce((s,u) => s + (u.bbConn || 0), 0);
+    const bbFirst = Math.min(bbAll, 10000);
+    const bbBalance = bbAll > 10000 ? (bbAll - 10000) * 0.75 : 0;
+    const otherHeatAll = c.units.reduce((s,u) => s + (u.otherHeat || 0), 0);
+    const acAll = c.units.reduce((s,u) => s + (u.ac || 0), 0);
+    const hpAll = c.units.reduce((s,u) => s + (u.hp || 0), 0);
+    const evAll = c.units.reduce((s,u) => s + (u.ev || 0), 0);
+
+    // Helper: build per-column entries; col is "" (A), "_2" (B), "_3" (C), "_4" (D), "_5" (E)
+    function colEntries(suffix, suffixHeat2, u, isPrincipal) {
+      const has = u && u.area > 0;
+      const acHp = has ? ((u.ac||0) + (u.hp||0)) : 0;
+      const dryer = has ? olDryer(u.id) : 0;
+      const hwt = has ? olHwt(u.id) : 0;
+      const other = has ? olOther(u.id) : 0;
+      const bk = unitBreaker(u);
+      return {
+        ["m²i a basic load of 5000 W for the first 90 m² or less of living area plus" + suffix]: has ? wStr(basicI(u, isPrincipal)) : "",
+        ["m²ii 1000 W for each 90 m² or portion thereof plus" + suffix]: has ? wStr(basicII(u)) : "",
+        ["Baseboard Heaters" + suffix]: has ? wStr(u.bbConn) : "",
+        // Heat "Other" row (suffix series _1-_5)
+        ["Otheriii any electric spaceheating loads using the demand factors from Rule 62118 Baseboard heat 100 of the first 10kWplus 75 for any amount over 10 kW Electric thermal storage heating system duct heater or electric furnace 100 plus any airconditioning loads with demand factor of 100 subject to Rule 8106 3 or any heat pump motor loads with demand factors as permitted in Section 28 plus" + suffix]: has ? wStr(u.otherHeat) : "",
+        // AC/HP combined row (suffix series _6-_10)
+        ["Otheriii any electric spaceheating loads using the demand factors from Rule 62118 Baseboard heat 100 of the first 10kWplus 75 for any amount over 10 kW Electric thermal storage heating system duct heater or electric furnace 100 plus any airconditioning loads with demand factor of 100 subject to Rule 8106 3 or any heat pump motor loads with demand factors as permitted in Section 28 plus" + suffixHeat2]: has ? wStr(acHp) : "",
+        ["Otheriv any electric range load 6000 W for a single range plus 40 of any amount by which the rating of the range exceeds 12 kW plus" + suffix]: has ? wStr(u.range) : "",
+        ["Otherv any electric tankless water heaters or electric water heaters for steamers swimming pools hot tubs or spas with a demand factor of 100 plus" + suffix]: has ? wStr(u.tankless) : "",
+        ["Othervi except as permitted by Rule 8 106 11 any electric vehicle supply equipment loads with a demand factor of 100 plus" + suffix]: has ? wStr(u.ev) : "",
+        ["Dryer" + suffix]: has ? wStr(dryer) : "",
+        ["HWT" + suffix]: has ? wStr(hwt) : "",
+        ["Other" + suffix]: has ? wStr(other) : "",
+        ["Total" + suffix]: has ? wStr(u.unitTotal) : ""
+      };
+    }
+
+    // Build the map
+    const m = {
+      "PROJECT ADDRESS": $("addr").value || "",
+    };
+    // Per-column entries (A, B, C, D, E)
+    Object.assign(m, colEntries("",   "_6",  A, true));
+    Object.assign(m, colEntries("_2", "_7",  B, true));
+    Object.assign(m, colEntries("_3", "_8",  null, true));
+    Object.assign(m, colEntries("_4", "_9",  null, true));
+    Object.assign(m, colEntries("_5", "_10", E, false));
+
+    // m² areas — Text14 through Text18 per column (verified visually)
+    m["Text14"] = A.area ? wStr(A.area) : "";
+    m["Text15"] = B && B.area ? wStr(B.area) : "";
+    m["Text16"] = "";
+    m["Text17"] = "";
+    m["Text18"] = E && E.area ? wStr(E.area) : "";
+
+    // Cable sizes
+    m["100 125 150 200 OtherType  size of service andor feeder AWG  kcmil Cu  Al"] = bA.conductor;
+    m["100 125 150 200 OtherType  size of service andor feeder AWG  kcmil Cu  Al_2"] = bB.conductor;
+    m["100 125 150 200 OtherType  size of service andor feeder AWG  kcmil Cu  Al_3"] = "";
+    m["100 125 150 200 OtherType  size of service andor feeder AWG  kcmil Cu  Al_4"] = "";
+    m["60 100 OtherType  size of service andor feeder AWG  kcmil Cu  Al"] = bE.conductor;
+
+    // Cascade
+    m["100 heaviest load exclude any electric space heating airconditioningheat pump"] = wStr(heaviest);
+    m["65 next unit load exclude any electric space heating airconditioningheat pump"] = wStr(next1);
+    m["65 next unit load exclude any electric space heating airconditioningheat pump_2"] = wStr(next2);
+    m["40 next unit load exclude any electric space heating airconditioningheat pump"] = wStr(next3);
+    m["Other_11"] = "";  // 25% remaining units (none in 3-unit calc)
+    m["Baseboard heating load100 of the first 10kW plus 75 for any amount over 10 kW"] = wStr(bbFirst);
+    m["Baseboard heating load100 of the first 10kW plus 75 for any amount over 10 kW_2"] = wStr(bbBalance);
+    m["Electric spaceheating loads As per Section 62"] = wStr(otherHeatAll);
+    m["Airconditioning loads Subject to Rule 8106 3"] = wStr(acAll);
+    m["Heat Pump Motor Loads Subject to Rule 8106 3"] = wStr(hpAll);
+    m["minus"] = "";  // EVEMS deduction
+
+    // Service info
+    m["Voltage"] = String(c.voltage || 240);
+    m["Phase"] = "1Ø 3W";
+    m[" of Electric Meters"] = $("svc-meters").value || "1";
+    m["Amps"] = c.consumerAmps ? String(Math.round(c.consumerAmps)) : "";
+    m["Total Watts"] = wStr(c.consumerTotal || 0);
+
+    // Contractor / FSR
+    m["Electrical Contractor Name  license Number"] = [$("contractor").value, $("contractor-lic").value].filter(Boolean).join(" — ");
+    m["Email"] = $("contractor-email").value || "";
+    m["Phone Number"] = $("contractor-phone").value || "";
+    m["FSR Name  Registration Number"] = [$("fsr-name").value, $("fsr-reg").value].filter(Boolean).join(" — ");
+    m["Date1_af_date"] = $("date").value || "";
+
+    return m;
+  }
+
+  // AHJ filler registry — blankUrl is fetched from the same origin (GitHub Pages),
+  // with file picker as a fallback if the fetch fails (offline, missing blank, etc.)
+  const AHJ_FILLERS = {
+    vancouver: { type:"acroform", name:"Vancouver", slug:"Vancouver", blankUrl:"vancouver.pdf", buildMap: () => buildVancouverFieldMap() },
+    westvan:   { type:"acroform", name:"West Vancouver", slug:"WestVancouver", blankUrl:"west-vancouver.pdf", buildMap: () => buildWestVanFieldMap() },
+    dnv:       { type:"acroform", name:"DNV", slug:"DNV", blankUrl:"dnv.pdf", buildMap: () => buildDNVFieldMap() },
+    burnaby:   { type:"acroform", name:"Burnaby R1", slug:"Burnaby", blankUrl:"burnaby-r1.pdf", buildMap: () => buildBurnabyFieldMap() },
+    cnv_sf:    { type:"overlay",  name:"CNV Single Family + Suite", slug:"CNV-SF", blankUrl:"cnv-sf-suite.pdf", buildCoords: () => buildCnvSfCoords() },
+    cnv_th:    { type:"overlay",  name:"CNV Townhouse", slug:"CNV-Townhouse", blankUrl:"cnv-townhouse.pdf", buildCoords: () => buildCnvThCoords() },
+    surrey_sf: { type:"acroform", name:"Surrey SF + Suite", slug:"Surrey-SF", blankUrl:"surrey-sf-suite.pdf", buildMap: () => buildSurreySfFieldMap() },
+    surrey_th: { type:"acroform", name:"Surrey Townhouse", slug:"Surrey-Townhouse", blankUrl:"surrey-townhouse.pdf", buildMap: null, note: "Surrey Townhouse supports up to 6 dwelling units — tool data model only handles 3. Extending data model needed before this can be wired." },
+    maple:     { type:"acroform", name:"Maple Ridge", slug:"MapleRidge", blankUrl:"maple-ridge.pdf", buildMap: () => buildMapleRidgeFieldMap() }
+  };
+
+  async function fillVancouverPDF(file) {
+    try {
+      setExportStatus("Loading pdf-lib…");
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js");
+
+      setExportStatus(file ? "Reading PDF…" : "Loading embedded blank PDF…");
+      const buf = file ? await file.arrayBuffer() : vancouverBlankBytes();
+      if (!file && (!VANCOUVER_PDF_PARTS.length || VANCOUVER_PDF_PARTS.join("").length < 1000)) {
+        setExportStatus("Embedded PDF not loaded — please pick a blank PDF via the secondary button.", true);
+        return;
+      }
+      const pdfDoc = await PDFLib.PDFDocument.load(buf);
+      const form = pdfDoc.getForm();
+
+      const map = buildVancouverFieldMap();
+      setExportStatus("Filling " + Object.keys(map).length + " fields…");
+      let filled = 0, missing = [];
+      for (const [name, value] of Object.entries(map)) {
+        try {
+          const field = form.getTextField(name);
+          field.setText(String(value || ""));
+          filled++;
+        } catch (e) {
+          missing.push(name);
+        }
+      }
+
+      setExportStatus("Saving filled PDF…");
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const addr = ($("addr").value || "filled").replace(/[\\/:*?"<>|]+/g, "_").trim();
+      a.href = url;
+      a.download = `Vancouver_LoadCalc_${addr}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setExportStatus("Filled (" + filled + " fields). Check downloads folder." + (missing.length ? " (Skipped " + missing.length + " fields not found in this PDF.)" : ""));
+    } catch (err) {
+      console.error(err);
+      setExportStatus("Failed: " + err.message, true);
+    }
+  }
+
+  // Register service worker for PWA install + offline support
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(err => console.warn("SW register failed:", err));
+    });
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    renderBaseboardGrid("");      // Unit A
+    renderBaseboardGrid("b-");    // Unit B (suite)
+    renderBaseboardGrid("c-");    // Unit C (laneway)
+    load();
+    // Ensure V fields default to 240 if empty (for users with old saved data)
+    ["a","b","c"].forEach(p => {
+      ["ac","hp"].forEach(k => {
+        const v = $(p+"-"+k+"-v");
+        if (v && (!v.value || v.value === "0")) v.value = "240";
+      });
+    });
+    // Back-fill company-wide defaults if a tech's device has empty shop info
+    const COMPANY_DEFAULTS = {
+      "contractor": "Kato Electrical Ltd.",
+      "contractor-lic": "LEL0203994",
+      "fsr-name": "Arthur Kavanagh",
+      "fsr-reg": "009315",
+      "contractor-email": "info@katoelectrical.com",
+      "contractor-phone": "604-417-4785"
+    };
+    Object.entries(COMPANY_DEFAULTS).forEach(([id, def]) => {
+      const el = $(id);
+      if (el && !el.value) el.value = def;
+    });
+    initDate();
+    wireFla();
+    wireRangeModes();
+    ["a","b","c"].forEach(p => syncRangeMode(p));
+    setUnits(unitCount);  // applies visibility
+    bbCalc("");
+    bbCalc("b-");
+    bbCalc("c-");
+    calc();
+
+    // Legacy Vancouver file picker now superseded by pickAndFillAHJ — kept for back-compat.
+    const pickerEl = $("vancouver-pdf-input");
+    if (pickerEl) pickerEl.addEventListener("change", e => {
+      const f = e.target.files && e.target.files[0];
+      if (f) fillAHJ('vancouver', f);
+      e.target.value = "";
+    });
+  });
+</script>
+
+</body>
+</html>
