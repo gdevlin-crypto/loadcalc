@@ -1,7 +1,7 @@
 // Kato Load Calc — service worker
 // Caches the app shell + AHJ blanks so the tool runs fully offline once a tech has opened it.
 // Bump CACHE_VERSION whenever index.html or any blank changes to force re-cache.
-const CACHE_VERSION = "kato-loadcalc-v6";
+const CACHE_VERSION = "kato-loadcalc-v7";
 const APP_SHELL = [
   "./",
   "./index.html",
