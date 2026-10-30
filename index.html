@@ -249,7 +249,6 @@
       <div>
         <label for="ev-mode">EVSE / EVEMS</label>
         <select id="ev-mode">
-          <option value="none">No EVSE in this calc</option>
           <option value="full">Full EVSE rating @ 100% (added to total)</option>
           <option value="evems">EVLMS/EVEMS controlled — labeled "EVEMS", excluded from totals (CEC 8-106 11)</option>
         </select>
@@ -815,11 +814,13 @@
     // the EVSE load is identified on the form but EXCLUDED from the
     // unit total and the service total. "evLabel" is what the PDF fill
     // will write to the "100% EVSE" row (e.g. "9600 EVEMS").
+    // Any value in the EV box is ALWAYS counted — either at 100% or labeled
+    // EVEMS and excluded. (No "no EVSE" mode — if there's a value, it counts.)
     const evMode = ($("ev-mode")||{}).value || "full";
-    const evInTotal = ev > 0 && evMode === "full";
-    const evLabel = (ev > 0 && evMode === "evems") ? (Math.round(ev) + " EVEMS")
-                  : (ev > 0 && evMode === "full")  ? String(Math.round(ev))
-                  : "";
+    const evInTotal = ev > 0 && evMode !== "evems";
+    const evLabel = ev > 0
+      ? (evMode === "evems" ? (Math.round(ev) + " EVEMS") : String(Math.round(ev)))
+      : "";
     const evForTotal = evInTotal ? ev : 0;
 
     // Itemized unit total — 8-200(1)(a) sum (EV included only when ev-mode = "full")
@@ -857,7 +858,7 @@
   function calc() {
     const method = getCalcMethod();
     const evMode = ($("ev-mode")||{}).value || "full";
-    const evInServiceTotal = evMode === "full";
+    const evInServiceTotal = evMode !== "evems";
 
     // Per-unit basic mode:
     //  - Vancouver combined (b): both A and B use 8-200(1) single-dwelling basic
@@ -1316,8 +1317,12 @@
       m[f.conductor] = u.total ? conductorFor(u.breakerAmps) : "";
     });
 
-    // Cascade — blank in Vancouver (b) mode; otherwise fill normally
-    if (isVanCombined) {
+    // Cascade — blank in Vancouver (b) mode AND in single-dwelling calcs
+    // (8-202(3) applies only to multi-dwelling services; a Principal-only
+    // calc uses Unit A's total directly and the whole cascade section
+    // should stay empty to avoid visual double-counting with the upper half).
+    const singleDwelling = c.units.length === 1;
+    if (isVanCombined || singleDwelling) {
       m[F.cascade.heaviest] = "";
       m[F.cascade.next1] = "";
       m[F.cascade.next2] = "";
@@ -1328,9 +1333,19 @@
       m[F.cascade.carried] = "";
       m[F.cascade.ev] = "";
       // Suite subtotal → "Add total unmetered load below to column A" (Text3)
-      const suite = c.units.find(u => u.id === "b");
-      m[F.footer.unmeteredB] = suite ? wStr(suite.unitTotal) : "";
+      // Only applies to Vancouver (b) — in single-dwelling we leave it blank.
+      if (isVanCombined) {
+        const suite = c.units.find(u => u.id === "b");
+        m[F.footer.unmeteredB] = suite ? wStr(suite.unitTotal) : "";
+      } else {
+        m[F.footer.unmeteredB] = "";
+      }
     } else {
+      // Multi-unit cascade (TSBC + CEC default).
+      // Rule 8-106(3): when interlocked, only the LARGER of heat vs cool is
+      // carried — fill individual rows AND the "carried" row.
+      // When NOT interlocked, each row contributes individually and the
+      // "carried" row stays blank so the inspector doesn't double-count.
       m[F.cascade.heaviest] = wStr(heaviest);
       m[F.cascade.next1] = wStr(next1);
       m[F.cascade.next2] = wStr(next2);
@@ -1338,7 +1353,7 @@
       m[F.cascade.otherHeat] = wStr(otherHeatAll);
       m[F.cascade.ac] = wStr(acAll);
       m[F.cascade.hp] = wStr(hpAll);
-      m[F.cascade.carried] = wStr(carriedAll);
+      m[F.cascade.carried] = c.interlock ? wStr(carriedAll) : "";
       m[F.cascade.ev] = wStr(evAtService);
       m[F.footer.unmeteredB] = "";
     }
@@ -1455,7 +1470,30 @@
         setExportStatus(`Filling ${ahj.name} (${Object.keys(map).length} fields)…`);
         for (const [name, value] of Object.entries(map)) {
           try {
+            // Checkbox branch: value === true (check), false (leave unchecked)
+            if (value === true || value === false) {
+              try {
+                const cb = form.getCheckBox(name);
+                if (value) cb.check(); else cb.uncheck();
+                filled++;
+              } catch (e) { missing.push(name); }
+              continue;
+            }
+            // Radio branch: value is {radio: 'option-name'}
+            if (value && typeof value === 'object' && 'radio' in value) {
+              try {
+                const rg = form.getRadioGroup(name);
+                rg.select(value.radio);
+                filled++;
+              } catch (e) { missing.push(name); }
+              continue;
+            }
+            // Text (default)
             const f = form.getTextField(name);
+            // Strip /MaxLen so AHJ forms that limited fields to e.g. 4 chars
+            // (Burnaby's "TCL" cells) accept the full value instead of
+            // truncating "25030" → "2503".
+            try { f.acroField.dict.delete(PDFLib.PDFName.of('MaxLen')); } catch (e) {}
             f.setText(String(value || ""));
             try { f.setFontSize(0); } catch (e) {}
             // Strip the static /AP appearance so iOS Safari / Preview etc.
@@ -1708,6 +1746,10 @@
       }
       const f = viiFactor(unit);
       dryer = dryer * f; hwt = hwt * f; other = other * f;
+      // Burnaby's small "Total:" row at the bottom of the (vii) column is the
+      // sub-total of just the (vii) demand values (dryer + hwt + other) — NOT
+      // the breaker amps and NOT the full unit total.
+      const viiSubtotal = (dryer || 0) + (hwt || 0) + (other || 0);
       return {
         area: wStr(area), basicI: wStr(basicI), basicII: wStr(basicII),
         bb: wStr(unit.bbConn), otherHeat: wStr(unit.otherHeat),
@@ -1715,6 +1757,7 @@
         range: wStr(unit.range), tankless: wStr(unit.tankless),
         ev: unit.evLabel || "",                      // labeled "<v> EVEMS" if controlled
         dryer: wStr(dryer), hwt: wStr(hwt), other: wStr(other),
+        viiSubtotal: wStr(viiSubtotal),
         tcl: wStr(unit.unitTotal),
         breakerAmps: unit.area ? String(breakerA) : "",
         conductor: unit.area ? conductorFor(breakerA) : ""
@@ -1740,8 +1783,70 @@
     // CEC 8-106(11): EVEMS-controlled EV loads excluded from service total.
     const evAll = c.evMode === "evems" ? 0 : evAllRaw;
 
+    // Burnaby breaker-checkbox mapper. The form has a checkbox per standard
+    // size per column; tick the one matching the calculated main breaker.
+    //  Columns A/B/C/D: 100, 125, 150, 200, Other
+    //  Column E (suite): 60, 100, Other
+    function brkA(amps, suffixMap) {
+      // suffixMap: { "100": fieldName, "125": ..., "150": ..., "200": ..., "Other": ... }
+      const n = parseInt(amps);
+      const out = {};
+      out[suffixMap["100"]]   = n === 100;
+      out[suffixMap["125"]]   = n === 125;
+      out[suffixMap["150"]]   = n === 150;
+      out[suffixMap["200"]]   = n === 200;
+      out[suffixMap["Other"]] = isFinite(n) && n > 0 && ![100,125,150,200].includes(n);
+      return out;
+    }
+    function brkE(amps, suffixMap) {
+      const n = parseInt(amps);
+      const out = {};
+      out[suffixMap["60"]]    = n === 60;
+      out[suffixMap["100"]]   = n === 100;
+      out[suffixMap["Other"]] = isFinite(n) && n > 0 && ![60,100].includes(n);
+      return out;
+    }
+    const breakerA = brkA(A.breakerAmps, { "100":"100",    "125":"125",    "150":"150",    "200":"200",    "Other":"Other_6" });
+    const breakerB = brkA(B.breakerAmps, { "100":"100_2",  "125":"125_2",  "150":"150_2",  "200":"200_2",  "Other":"Other_7" });
+    const breakerC = brkA(Cz.breakerAmps,{ "100":"100_3",  "125":"125_3",  "150":"150_3",  "200":"200_3",  "Other":"Other_8" });
+    const breakerD = brkA(Dz.breakerAmps,{ "100":"100_4",  "125":"125_4",  "150":"150_4",  "200":"200_4",  "Other":"Other_9" });
+    const breakerE = brkE(E.breakerAmps, { "60":"60",      "100":"100_5",                                 "Other":"Other_10" });
+
+    // "Number of Primary Units (per dwelling)" — always tick "1" for each
+    // populated column. The "2" option (duplex within one column) is rare
+    // enough we never auto-tick it; tech can override on the PDF if needed.
+    const primaryUnits = {
+      "1":   !!A.area,       // Column A — Principal
+      "2":   false,
+      "1_2": !!B.area,       // Column B — Laneway (treated as 2nd Principal in Burnaby)
+      "2_2": false,
+      "1_3": false,          // Column C — unused
+      "2_3": false,
+      "1_4": false,          // Column D — unused
+      "2_4": false
+    };
+
+    // Service characteristics checkboxes (best-guess mapping, confirm visually):
+    //   Check Box1 = Overhead · Check Box2 = Underground
+    //   Check Box3 = 200 Amp Main Consumer's Service · Check Box4 = 400 Amp
+    const svcOrient = $("svc-orient").value;      // "Overhead" | "Underground" | ""
+    const consumerAmps = c.consumerAmps || 0;
+    const mainSvcAmps = c.recSize || parseFloat($("svc-new-a").value) || parseFloat($("svc-ex-a").value) || 0;
+    const svcChecks = {
+      "Check Box1": svcOrient === "Overhead",
+      "Check Box2": svcOrient === "Underground",
+      "Check Box3": mainSvcAmps > 0 && mainSvcAmps <= 200,
+      "Check Box4": mainSvcAmps > 200 && mainSvcAmps <= 400
+    };
+
     return {
       "Project Address": $("addr").value || "",
+      // "Number of Primary Units" — tick "1" for each populated column
+      ...primaryUnits,
+      // Breaker checkboxes per column
+      ...breakerA, ...breakerB, ...breakerC, ...breakerD, ...breakerE,
+      // Service characteristics checkboxes (overhead/underground + 200/400 A)
+      ...svcChecks,
 
       // Column A — Principal (my A)
       "Total Livable Area -PD-A": A.area,
@@ -1750,7 +1855,7 @@
       "AC A": A.ac, "HP A": A.hp,
       "Range A": A.range, "WH A": A.tankless, "EVSE A": A.ev,
       "Dryer A": A.dryer, "HWT A": A.hwt, "Other oA": A.other,
-      "TCL A": A.tcl, "Total A": A.breakerAmps, "Cable Size A": A.conductor,
+      "TCL A": A.tcl, "Total A": A.viiSubtotal, "Cable Size A": A.conductor,
 
       // Column B — Laneway (my C) as 2nd Principal Dwelling
       "Total Livable Area -PD-B": B.area,
@@ -1759,19 +1864,19 @@
       "AC B": B.ac, "HP B": B.hp,
       "Range B": B.range, "WH B": B.tankless, "EVSE B": B.ev,
       "Dryer B": B.dryer, "HWT B": B.hwt, "Other oB": B.other,
-      "TCL B": B.tcl, "Total B": B.breakerAmps, "Cable Size B": B.conductor,
+      "TCL B": B.tcl, "Total B": B.viiSubtotal, "Cable Size B": B.conductor,
 
       // Columns C and D — unused
       "Prinicpal Dwelling-C": Cz.area, "Basic Load -PD-C": Cz.basicI, "Basic LoadB -PD-C": Cz.basicII,
       "Baseboard Heaters C": Cz.bb, "Other C": Cz.otherHeat,
       "AC C": Cz.ac, "HP C": Cz.hp, "Range C": Cz.range, "WH C": Cz.tankless, "EVSE C": Cz.ev,
       "Dryer C": Cz.dryer, "HWT C": Cz.hwt, "Other oC": Cz.other,
-      "TCL C": Cz.tcl, "Total C": Cz.breakerAmps, "Cable Size C": Cz.conductor,
+      "TCL C": Cz.tcl, "Total C": Cz.viiSubtotal, "Cable Size C": Cz.conductor,
       "Prinicpal Dwelling-D": Dz.area, "Basic Load -PD-D": Dz.basicI, "Basic LoadB -PD-D": Dz.basicII,
       "Baseboard Heaters D": Dz.bb, "Other D": Dz.otherHeat,
       "AC D": Dz.ac, "HP D": Dz.hp, "Range  D": Dz.range, "WH D": Dz.tankless, "EVSE D": Dz.ev,
       "Dryer D": Dz.dryer, "HWT D": Dz.hwt, "Other oD": Dz.other,
-      "TCL D": Dz.tcl, "Total D": Dz.breakerAmps, "Cable Size D": Dz.conductor,
+      "TCL D": Dz.tcl, "Total D": Dz.viiSubtotal, "Cable Size D": Dz.conductor,
 
       // Column E — Secondary Suite (my B). Note: several field names have double spaces.
       "Secondary Suites-E": E.area,
@@ -1780,7 +1885,7 @@
       "AC  E": E.ac, "HP  E": E.hp,
       "Range E": E.range, "WH  E": E.tankless, "EVSE E": E.ev,
       "Dryer E": E.dryer, "HWT E": E.hwt, "Other oE": E.other,
-      "TCL E": E.tcl, "Total E": E.breakerAmps, "Cable Size E": E.conductor,
+      "TCL E": E.tcl, "Total E": E.viiSubtotal, "Cable Size E": E.conductor,
 
       // Unmetered suite added to A-D (left blank — user fills if they want)
       "SS A": "", "SS B": "", "SS C": "", "SS D": "",
