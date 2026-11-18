@@ -1278,6 +1278,14 @@
 
   document.addEventListener("input", calc);
   document.addEventListener("change", calc);
+  // Any user-driven input during Section 8 mode counts as "doing the calc"
+  // and unlocks the 8-106(8) tile once a valid total is produced.
+  document.addEventListener("input", e => {
+    if (TOP_METHOD === "section-8" && !userTouchedSection8) {
+      userTouchedSection8 = true;
+      if (typeof updateMethodGate === "function") updateMethodGate();
+    }
+  });
 
   // ===== Embedded blank Vancouver PDF =====
   // Blank "Electrical Load Calculation for One-Family Dwelling..." form, 2024 CE Code, rev 2025-03-07.
@@ -2688,8 +2696,15 @@
   // calculated-load result (consumerTotal > 0) before the shortcut unlocks.
   // This forces the baseline to be entered so the existing-installation
   // method isn't used without any dwelling info on record.
+  // Session-level flag: the tech must actually TOUCH a Section 8 input
+  // this session before the 8-106(8) shortcut unlocks. Prevents the gate
+  // from being bypassed by saved localStorage values from a previous job.
+  let userTouchedSection8 = false;
   function augUnlocked() {
-    return LAST_CALC && typeof LAST_CALC.consumerTotal === "number" && LAST_CALC.consumerTotal > 0;
+    return userTouchedSection8
+        && LAST_CALC
+        && typeof LAST_CALC.consumerTotal === "number"
+        && LAST_CALC.consumerTotal > 0;
   }
   function updateMethodGate() {
     const tile = $("method-tile-aug");
