@@ -93,6 +93,9 @@
   .config-tile { border:2px solid var(--line); border-radius:10px; padding:10px; cursor:pointer; text-align:center; background:#fff; transition:.15s; }
   .config-tile:hover { border-color:var(--brand-2); }
   .config-tile.active { border-color:var(--brand); background:var(--pill); }
+  .config-tile.locked { opacity:.55; cursor:not-allowed; background:#f1f5f9; }
+  .config-tile.locked:hover { border-color:var(--line); }
+  .config-tile.locked h3 { color:var(--muted); }
   .config-tile h3 { margin:0 0 4px; font-size:14px; color:var(--brand); }
   .config-tile .sub { font-size:11px; color:var(--muted); }
   .per-unit-results { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px; }
@@ -128,7 +131,7 @@
 <header>
   <div>
     <h1>Kato Electrical — Field Load Calc</h1>
-    <small>CEC 8-200 / 8-202 + 8-106(8) · BC AHJ-ready · <strong>v8</strong></small>
+    <small>CEC 8-200 / 8-202 + 8-106(8) · BC AHJ-ready · <strong>v9</strong></small>
   </div>
   <div style="display:flex; gap:6px;">
     <button class="btn-ghost no-print" style="flex:0 0 auto; min-width:auto; padding:8px 12px; font-size:13px;" onclick="resetForm()">New calc</button>
@@ -232,8 +235,9 @@
       <div class="config-tile active" data-method="section-8" onclick="setMethod('section-8')">
         <h3>Calculated load</h3><div class="sub">CEC 8-200 / 8-202 (default)</div>
       </div>
-      <div class="config-tile" data-method="rule-8-106-8" onclick="setMethod('rule-8-106-8')">
-        <h3>Existing — 12-month max demand</h3><div class="sub">CEC 8-106(8) · TSBC IB-EL 2023-01</div>
+      <div class="config-tile locked" id="method-tile-aug" data-method="rule-8-106-8" onclick="setMethod('rule-8-106-8')">
+        <h3>Existing — 12-month max demand</h3>
+        <div class="sub" id="method-tile-aug-sub">🔒 Run the calculated load first to unlock</div>
       </div>
     </div>
   </section>
@@ -500,6 +504,14 @@
           <option value="1Ø 3W">1Ø 3W (120/240 V)</option>
           <option value="3Ø 4W">3Ø 4W</option>
         </select>
+      </div>
+    </div>
+
+    <div class="bb-callout" style="background:#eff6ff; border-color:#60a5fa; color:#1e3a8a;">
+      <strong>Send the homeowner Kato's BC Hydro Data Export Guide</strong>
+      Walks them through pulling a 12-month hourly CSV from MyHydro. BC Hydro takes ~24 hours to prepare the file; worth sending at the first visit.
+      <div style="margin-top:8px;">
+        <button type="button" class="btn-secondary no-print" onclick="shareBCHydroGuide()" style="flex:0 0 auto; min-width:auto; padding:8px 14px; font-size:13px;">📎 Open / share guide</button>
       </div>
     </div>
 
@@ -1175,6 +1187,9 @@
       evMode, evInServiceTotal,
       consumerTotal, consumerAmps, recSize: rec, voltage: v
     };
+
+    // Unlock the 8-106(8) tile once a valid Section 8 total is in hand.
+    if (typeof updateMethodGate === "function") updateMethodGate();
 
     save();
   }
@@ -2628,6 +2643,36 @@
   }
 
   // ===================================================================
+  // ===== Share BC Hydro guide with the homeowner =====================
+  // On iOS, Web Share API lets us open the native share sheet with the
+  // PDF file attached, so the tech can email / text / AirDrop it to the
+  // homeowner without leaving the app. Falls back to opening the PDF
+  // in a new tab (tech can share from there) when the API isn't
+  // available or the browser refuses file-sharing.
+  async function shareBCHydroGuide() {
+    const url = "./bchydro-export-guide.pdf";
+    try {
+      if (navigator.canShare && navigator.share) {
+        const resp = await fetch(url);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          const file = new File([blob], "Kato-BC-Hydro-Data-Export-Guide.pdf", { type: "application/pdf" });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: "BC Hydro Data Export Guide",
+              text: "Hi — Kato Electrical here. Please follow this guide to export 12 months of hourly consumption data from your MyHydro account, then reply with the CSV. Thanks!"
+            });
+            return;
+          }
+        }
+      }
+    } catch (e) { /* user cancelled or sharing failed — fall through to open */ }
+    // Fallback: open PDF in new tab, tech shares from there
+    window.open(url, "_blank");
+  }
+
+  // ===================================================================
   // ===== CEC 8-106(8) — 12-month maximum demand method (TSBC path) ===
   // ===================================================================
   // Alternative to Section 8-200/8-202 for adding loads to an EXISTING
@@ -2639,13 +2684,37 @@
   let TOP_METHOD = "section-8";
   let AUG_LAST = null;  // last computed augmented-load result
 
+  // The 8-106(8) tile is gated: tech must first produce a valid Section 8
+  // calculated-load result (consumerTotal > 0) before the shortcut unlocks.
+  // This forces the baseline to be entered so the existing-installation
+  // method isn't used without any dwelling info on record.
+  function augUnlocked() {
+    return LAST_CALC && typeof LAST_CALC.consumerTotal === "number" && LAST_CALC.consumerTotal > 0;
+  }
+  function updateMethodGate() {
+    const tile = $("method-tile-aug");
+    const sub  = $("method-tile-aug-sub");
+    if (!tile) return;
+    const unlocked = augUnlocked();
+    tile.classList.toggle("locked", !unlocked);
+    if (sub) sub.textContent = unlocked
+      ? "CEC 8-106(8) · TSBC IB-EL 2023-01"
+      : "🔒 Run the calculated load first to unlock";
+  }
+
   function setMethod(m) {
+    // Gate: block the shortcut method until a Section 8 calc has produced a total.
+    if (m === "rule-8-106-8" && !augUnlocked()) {
+      alert("Run the calculated-load method first.\n\nEnter the dwelling's existing data in the Section 8 tiles until a service total appears, then this method unlocks.");
+      return;
+    }
     TOP_METHOD = m;
     document.querySelectorAll("[data-method]").forEach(t => t.classList.toggle("active", t.dataset.method === m));
     const showSection8 = m === "section-8";
     document.querySelectorAll(".section8-only").forEach(el => el.style.display = showSection8 ? "" : "none");
     document.querySelectorAll(".aug-only").forEach(el => el.style.display = showSection8 ? "none" : "");
     if (!showSection8) { try { augCalc(); } catch(e) { console.warn(e); } }
+    updateMethodGate();
     save();
   }
 
@@ -3027,7 +3096,9 @@
       if (el) el.addEventListener("change", augCalc);
     });
     // Ensure the method visibility matches saved state (default: section-8)
-    setMethod(TOP_METHOD || "section-8");
+    // and the 8-106(8) tile reflects whether a Section 8 total is in hand.
+    setMethod("section-8");
+    updateMethodGate();
   });
 </script>
 
